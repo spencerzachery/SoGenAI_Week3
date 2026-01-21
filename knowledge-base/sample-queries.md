@@ -7,8 +7,8 @@ Use these queries to test your RAG pipeline and compare responses with and witho
 ### Basic Queries
 1. "How do I request an EC2 instance limit increase?"
 2. "What is the default Lambda concurrent execution limit?"
-3. "How many S3 buckets can I have per account?"
-4. "What are the API Gateway throttling limits?"
+3. "What are the API Gateway throttling limits?"
+4. "What's the difference between soft and hard limits?"
 
 ### Complex Queries
 5. "My Lambda function is being throttled. What should I check and how do I fix it?"
@@ -17,7 +17,7 @@ Use these queries to test your RAG pipeline and compare responses with and witho
 
 ### Expected RAG Improvement
 - Without RAG: Generic information about AWS limits
-- With RAG: Specific steps from our knowledge base, including console URLs and best practices
+- With RAG: Specific steps from our knowledge base, including console URLs, TAM guidance, and escalation procedures
 
 ## Outage and Incident Queries
 
@@ -33,39 +33,59 @@ Use these queries to test your RAG pipeline and compare responses with and witho
 
 ### Expected RAG Improvement
 - Without RAG: General incident response advice
-- With RAG: Specific templates, checklists, and procedures from our documentation
+- With RAG: Specific templates, checklists, severity levels, and communication templates from our documentation
 
 ## Troubleshooting Queries
 
-### Basic Queries
-14. "What does AccessDenied error mean in AWS?"
-15. "How do I analyze CloudWatch Logs?"
-16. "What information should I include in a support case?"
+### EC2 Troubleshooting
+14. "My EC2 instance is unreachable. What should I check?"
+15. "I'm getting 'Permission denied (publickey)' when trying to SSH. How do I fix this?"
+16. "What's the difference between system status checks and instance status checks?"
+17. "How do I troubleshoot high CPU utilization on my EC2 instance?"
 
-### Complex Queries
-17. "My EC2 instance is unreachable. Walk me through the troubleshooting steps."
-18. "I'm getting 'Too many connections' error on RDS. How do I fix this?"
-19. "How do I use X-Ray to debug a slow Lambda function?"
+### Lambda Troubleshooting
+18. "My Lambda function is timing out. What are the common causes?"
+19. "How do I fix 'Runtime exited with error: signal: killed' in Lambda?"
+20. "My Lambda in VPC can't access the internet. What's wrong?"
+21. "How do I reduce Lambda cold start latency?"
+
+### Database and Storage
+22. "I'm getting 'Too many connections' error on RDS. How do I fix this?"
+23. "My DynamoDB table is being throttled during a product launch. What should I do?"
+24. "S3 is returning SlowDown errors. What's happening?"
 
 ### Expected RAG Improvement
 - Without RAG: Generic troubleshooting steps
-- With RAG: Detailed step-by-step procedures with specific commands and checks
+- With RAG: Detailed step-by-step procedures with specific commands, code examples, and resolution patterns from real cases
+
+## Resolved Case Queries
+
+These queries should retrieve information from our resolved support cases:
+
+25. "How did we resolve the Lambda timeout issue with RDS connections?"
+26. "What happened when a customer locked themselves out of an S3 bucket?"
+27. "How do we handle DynamoDB hot partition issues?"
+28. "What's the resolution for API Gateway 502 errors with large payloads?"
+
+### Expected RAG Improvement
+- Without RAG: Generic advice
+- With RAG: Specific case resolutions with root cause analysis, resolution steps, and prevention recommendations
 
 ## Best Practices Queries
 
 ### Basic Queries
-20. "What are the six pillars of the Well-Architected Framework?"
-21. "How do I optimize costs for EC2 instances?"
-22. "What are IAM best practices?"
+29. "What are IAM best practices for security?"
+30. "How should I structure my CloudWatch logs?"
+31. "What information should I include in a support case?"
 
 ### Complex Queries
-23. "How should I design my VPC for security?"
-24. "What's the difference between Reserved Instances and Savings Plans?"
-25. "How do I implement encryption at rest for all my AWS resources?"
+32. "How do I implement connection pooling for Lambda with RDS?"
+33. "What's the best way to handle Lambda environment variables for large configs?"
+34. "How should I design partition keys to avoid DynamoDB hot partitions?"
 
 ### Expected RAG Improvement
 - Without RAG: High-level best practice summaries
-- With RAG: Detailed implementation guidance with specific recommendations
+- With RAG: Detailed implementation guidance with code examples and specific recommendations
 
 ## Testing Script Usage
 
@@ -90,7 +110,8 @@ When comparing RAG vs non-RAG responses, look for:
 | Accuracy | May hallucinate | Grounded in docs |
 | Actionability | Vague steps | Clear procedures |
 | Relevance | Broad coverage | Focused on query |
-| Sources | None cited | Can reference docs |
+| Sources | None cited | References docs |
+| Code Examples | Generic | From real cases |
 
 ## Advanced Testing
 
