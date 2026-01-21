@@ -1,0 +1,237 @@
+# AWS EC2 Troubleshooting Reference - Official Documentation Excerpts
+
+## Source: AWS Documentation
+## Last Updated: 2026-01-15
+## Purpose: Curated EC2 troubleshooting content for RAG knowledge base
+
+---
+
+## Instance State and Status Checks
+
+### Understanding Status Checks
+
+Amazon EC2 performs automated status checks every minute on running instances:
+
+**System Status Checks**
+Monitor AWS systems required to use your instance. These checks detect problems with your instance that require AWS involvement to repair:
+- Loss of network connectivity
+- Loss of system power
+- Software issues on the physical host
+- Hardware issues on the physical host
+
+**Instance Status Checks**
+Monitor the software and network configuration of your individual instance. These checks detect problems that require your involvement to repair:
+- Failed system status checks
+- Incorrect networking or startup configuration
+- Exhausted memory
+- Corrupted file system
+- Incompatible kernel
+
+### Troubleshooting Failed Status Checks
+
+**If System Status Check Fails:**
+1. Wait for AWS to resolve the issue, or
+2. Stop and start the instance (migrates to new hardware)
+3. For instances with instance store volumes, terminate and launch new instance
+
+**If Instance Status Check Fails:**
+1. Check system log for errors: Actions → Monitor and troubleshoot → Get system log
+2. Check screenshot: Actions → Monitor and troubleshoot → Get instance screenshot
+3. Verify security group allows required traffic
+4. Verify network ACL allows required traffic
+5. Check route table configuration
+
+---
+
+## Common EC2 Connection Issues
+
+### Unable to Connect via SSH
+
+**Error: Connection timed out**
+Possible causes:
+- Security group doesn't allow inbound SSH (port 22)
+- Network ACL doesn't allow traffic
+- Route table doesn't have route to internet gateway
+- Instance doesn't have public IP or Elastic IP
+- Instance CPU is 100% utilized
+
+Resolution steps:
+1. Verify security group has rule: Type=SSH, Port=22, Source=Your IP
+2. Check NACL allows inbound on port 22 AND outbound ephemeral ports
+3. Verify route table has 0.0.0.0/0 → igw-xxxxx
+4. Confirm instance has public IP in console
+5. Check CloudWatch CPUUtilization metric
+
+**Error: Permission denied (publickey)**
+Possible causes:
+- Wrong username for AMI type
+- Wrong private key file
+- Key permissions too open
+
+Resolution:
+- Amazon Linux/RHEL: ec2-user
+- Ubuntu: ubuntu
+- Debian: admin
+- SUSE: ec2-user
+- Bitnami: bitnami
+
+Fix key permissions:
+```bash
+chmod 400 my-key.pem
+ssh -i my-key.pem ec2-user@<public-ip>
+```
+
+**Error: Host key verification failed**
+The instance was stopped and started, receiving new host keys.
+Resolution: Remove old key from known_hosts:
+```bash
+ssh-keygen -R <instance-ip>
+```
+
+### Unable to Connect via RDP (Windows)
+
+**Error: Remote Desktop can't connect**
+1. Verify security group allows RDP (port 3389)
+2. Check Windows Firewall on instance
+3. Verify instance has completed initialization
+4. Check if Remote Desktop is enabled on instance
+
+**Error: Credentials don't work**
+1. Wait 4+ minutes after launch for password generation
+2. Get Windows password: Actions → Security → Get Windows password
+3. Use correct key pair to decrypt password
+
+---
+
+## Instance Performance Issues
+
+### High CPU Utilization
+
+**Diagnosis:**
+1. Check CloudWatch CPUUtilization metric
+2. For T2/T3 instances, check CPUCreditBalance
+3. Connect to instance and run `top` (Linux) or Task Manager (Windows)
+
+**Resolution:**
+- Identify and optimize high-CPU processes
+- For burstable instances with depleted credits:
+  - Wait for credits to accumulate
+  - Switch to unlimited mode
+  - Upgrade to larger instance type
+- Consider compute-optimized instance (C5, C6i)
+
+### Memory Issues
+
+**Symptoms:**
+- Application crashes
+- OOM killer messages in logs
+- Swap usage high
+
+**Diagnosis (Linux):**
+```bash
+free -m
+cat /var/log/messages | grep -i "out of memory"
+```
+
+**Resolution:**
+- Upgrade to instance with more memory
+- Add swap space (not recommended for production)
+- Optimize application memory usage
+- Use memory-optimized instance (R5, R6i)
+
+### Network Performance Issues
+
+**Diagnosis:**
+1. Check NetworkIn/NetworkOut CloudWatch metrics
+2. Verify instance type network performance
+3. Check for network throttling
+
+**Resolution:**
+- Use enhanced networking (ENA)
+- Upgrade to instance with higher network bandwidth
+- Use placement groups for low-latency
+- Consider cluster placement for HPC workloads
+
+---
+
+## EBS Volume Issues
+
+### Volume Not Attaching
+
+**Possible causes:**
+- Volume in different AZ than instance
+- Volume already attached to another instance
+- Device name conflict
+
+**Resolution:**
+1. Verify volume and instance are in same AZ
+2. Detach volume from other instance first
+3. Use different device name (/dev/sdf, /dev/sdg, etc.)
+
+### Volume Performance Issues
+
+**Diagnosis:**
+1. Check CloudWatch EBS metrics:
+   - VolumeReadOps, VolumeWriteOps
+   - VolumeQueueLength
+   - BurstBalance (for gp2)
+2. Check if IOPS limit reached
+
+**Resolution:**
+- Upgrade to gp3 for consistent performance
+- Increase provisioned IOPS
+- Use io2 for highest performance
+- Distribute I/O across multiple volumes
+
+### Data Recovery from Detached Volume
+
+1. Create snapshot of volume
+2. Create new volume from snapshot
+3. Attach to recovery instance
+4. Mount and access data:
+```bash
+sudo mkdir /mnt/recovery
+sudo mount /dev/xvdf1 /mnt/recovery
+```
+
+---
+
+## Instance Metadata and User Data
+
+### Accessing Instance Metadata
+
+From within the instance:
+```bash
+# Get instance ID
+curl http://169.254.169.254/latest/meta-data/instance-id
+
+# Get instance type
+curl http://169.254.169.254/latest/meta-data/instance-type
+
+# Get public IP
+curl http://169.254.169.254/latest/meta-data/public-ipv4
+
+# Get IAM role credentials
+curl http://169.254.169.254/latest/meta-data/iam/security-credentials/<role-name>
+```
+
+### IMDSv2 (Recommended)
+
+Use token-based requests for enhanced security:
+```bash
+TOKEN=$(curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+curl -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/instance-id
+```
+
+### User Data Troubleshooting
+
+**User data not executing:**
+1. Check cloud-init logs: /var/log/cloud-init.log
+2. Verify script has proper shebang (#!/bin/bash)
+3. Check script permissions
+4. User data only runs on first boot by default
+
+**View user data:**
+```bash
+curl http://169.254.169.254/latest/user-data
+```

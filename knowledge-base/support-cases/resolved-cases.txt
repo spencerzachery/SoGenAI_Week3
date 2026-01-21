@@ -1,0 +1,304 @@
+# Resolved Support Cases - Enterprise Support Knowledge Base
+
+## Document Type: Case Resolution Database
+## Last Updated: 2026-01-15
+## Purpose: Real-world case resolutions for RAG retrieval
+
+---
+
+## CASE-2026-0142: Lambda Function Intermittent Timeouts
+
+### Case Summary
+**Customer:** Enterprise SaaS Provider
+**Severity:** 2 - Production Impaired
+**Service:** AWS Lambda
+**Resolution Time:** 4 hours
+
+### Problem Description
+Customer reported that their Lambda function processing API requests was timing out intermittently, approximately 15% of invocations. The function connects to an RDS PostgreSQL database in the same VPC.
+
+### Symptoms
+- Function timeout set to 30 seconds
+- Timeouts occurring randomly, not correlated with load
+- CloudWatch logs showed function hanging on database connection
+- No errors in RDS logs
+
+### Root Cause Analysis
+Investigation revealed:
+1. Lambda function was creating new database connections on every invocation
+2. RDS instance had max_connections = 100
+3. During traffic spikes, connection pool exhausted
+4. New connection attempts were queuing and timing out
+
+### Resolution
+1. Implemented connection pooling using RDS Proxy
+2. Modified Lambda code to reuse connections:
+```python
+# Connection initialized outside handler
+import psycopg2
+conn = None
+
+def get_connection():
+    global conn
+    if conn is None or conn.closed:
+        conn = psycopg2.connect(
+            host=os.environ['DB_HOST'],
+            database=os.environ['DB_NAME'],
+            user=os.environ['DB_USER'],
+            password=os.environ['DB_PASSWORD']
+        )
+    return conn
+
+def handler(event, context):
+    connection = get_connection()
+    # Use connection...
+```
+3. Set Reserved Concurrency to 50 to limit concurrent connections
+
+### Prevention
+- Implemented CloudWatch alarm on RDS DatabaseConnections metric
+- Added Lambda Throttles alarm
+- Documented connection pooling pattern in team runbook
+
+---
+
+## CASE-2026-0089: S3 Access Denied After Bucket Policy Update
+
+### Case Summary
+**Customer:** Financial Services Company
+**Severity:** 1 - Production Down
+**Service:** Amazon S3
+**Resolution Time:** 45 minutes
+
+### Problem Description
+Customer updated S3 bucket policy to restrict access and immediately lost all access to the bucket, including the ability to modify the policy. Application serving customer documents was completely down.
+
+### Symptoms
+- All S3 API calls returning AccessDenied
+- Unable to access bucket via Console
+- Unable to modify or delete bucket policy
+- Application returning 500 errors
+
+### Root Cause Analysis
+Customer applied overly restrictive bucket policy:
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Effect": "Deny",
+    "Principal": "*",
+    "Action": "s3:*",
+    "Resource": [
+      "arn:aws:s3:::customer-bucket",
+      "arn:aws:s3:::customer-bucket/*"
+    ]
+  }]
+}
+```
+This denied ALL access including the root account.
+
+### Resolution
+1. Contacted AWS Support for emergency bucket policy reset
+2. AWS Support used internal tools to remove the deny policy
+3. Customer regained access within 30 minutes of escalation
+4. Applied corrected policy with proper conditions:
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Effect": "Deny",
+    "Principal": "*",
+    "Action": "s3:*",
+    "Resource": ["arn:aws:s3:::customer-bucket/*"],
+    "Condition": {
+      "StringNotEquals": {
+        "aws:PrincipalAccount": "123456789012"
+      }
+    }
+  }]
+}
+```
+
+### Prevention
+- Always include condition to exclude your own account from Deny statements
+- Test policy changes in non-production first
+- Use IAM Access Analyzer to validate policies before applying
+- Keep backup of working bucket policy
+
+---
+
+## CASE-2026-0203: EC2 Instance Unreachable After Security Group Change
+
+### Case Summary
+**Customer:** E-commerce Platform
+**Severity:** 1 - Production Down
+**Service:** Amazon EC2
+**Resolution Time:** 20 minutes
+
+### Problem Description
+After modifying security group rules to "tighten security," customer lost SSH access to all EC2 instances in production. Web application was still running but they couldn't access instances for troubleshooting another issue.
+
+### Symptoms
+- SSH connection timeout to all instances
+- Instances showing healthy in EC2 console
+- Status checks passing
+- Application still serving traffic (port 443 still open)
+
+### Root Cause Analysis
+Customer removed SSH (port 22) inbound rule intending to restrict source IPs, but accidentally deleted the rule entirely instead of modifying it.
+
+### Resolution
+1. Identified missing SSH rule in security group
+2. Added SSH rule with customer's office IP range:
+```
+Type: SSH
+Port: 22
+Source: 203.0.113.0/24 (Customer office IP range)
+```
+3. SSH access restored immediately (no instance restart needed)
+
+### Prevention
+- Use separate security group for management access
+- Implement AWS Systems Manager Session Manager for shell access (no SSH needed)
+- Use CloudTrail to track security group changes
+- Implement change management process for security group modifications
+
+---
+
+## CASE-2026-0178: DynamoDB Throttling During Product Launch
+
+### Case Summary
+**Customer:** Retail Company
+**Severity:** 2 - Production Impaired
+**Service:** Amazon DynamoDB
+**Resolution Time:** 2 hours
+
+### Problem Description
+Customer experienced severe throttling on DynamoDB table during a product launch event. Application was returning errors and customers couldn't complete purchases.
+
+### Symptoms
+- CloudWatch showing high ThrottledRequests
+- Application logs showing ProvisionedThroughputExceededException
+- Table in Provisioned mode with auto-scaling enabled
+- Auto-scaling not responding fast enough
+
+### Root Cause Analysis
+1. Table was provisioned at 1,000 WCU with auto-scaling max of 5,000 WCU
+2. Traffic spike was 10x normal within 5 minutes
+3. Auto-scaling cooldown period (5 minutes) prevented rapid scaling
+4. Hot partition detected - all writes going to same partition key
+
+### Resolution
+**Immediate:**
+1. Manually increased provisioned WCU to 10,000
+2. Switched table to On-Demand capacity mode for the event
+
+**Long-term:**
+1. Redesigned partition key to distribute writes:
+   - Before: `product_id` (hot key during launch)
+   - After: `product_id#shard_number` with write sharding
+2. Implemented DAX for read caching
+3. Pre-warmed table before future launches
+
+### Prevention
+- Use On-Demand mode for unpredictable workloads
+- Pre-scale provisioned tables before known events
+- Design partition keys for even distribution
+- Set up CloudWatch alarms on ThrottledRequests
+
+---
+
+## CASE-2026-0256: API Gateway 502 Errors Spike
+
+### Case Summary
+**Customer:** Healthcare Technology Company
+**Severity:** 2 - Production Impaired
+**Service:** Amazon API Gateway
+**Resolution Time:** 3 hours
+
+### Problem Description
+Customer reported sudden increase in 502 Bad Gateway errors from their REST API. Errors were intermittent and not affecting all requests.
+
+### Symptoms
+- 502 errors in API Gateway logs
+- Lambda function logs showing successful execution
+- Errors correlated with response payload size
+- Larger responses more likely to fail
+
+### Root Cause Analysis
+1. Lambda function was returning responses > 6 MB
+2. API Gateway has 10 MB payload limit, but Lambda integration has 6 MB limit
+3. Recent code change added verbose logging to response
+4. Responses exceeding 6 MB were being truncated, causing malformed JSON
+
+### Resolution
+1. Identified large response payloads in Lambda logs
+2. Modified Lambda to paginate large responses
+3. Implemented response compression:
+```python
+import gzip
+import base64
+
+def handler(event, context):
+    data = get_large_data()
+    
+    # Compress if response is large
+    if len(json.dumps(data)) > 1_000_000:
+        compressed = gzip.compress(json.dumps(data).encode())
+        return {
+            'statusCode': 200,
+            'headers': {
+                'Content-Encoding': 'gzip',
+                'Content-Type': 'application/json'
+            },
+            'body': base64.b64encode(compressed).decode(),
+            'isBase64Encoded': True
+        }
+    
+    return {'statusCode': 200, 'body': json.dumps(data)}
+```
+
+### Prevention
+- Monitor API Gateway IntegrationLatency and 5XXError metrics
+- Implement pagination for list endpoints
+- Set response size limits in application code
+- Use CloudWatch Logs Insights to analyze payload sizes
+
+---
+
+## CASE-2026-0312: CloudFront Cache Not Invalidating
+
+### Case Summary
+**Customer:** Media Company
+**Severity:** 3 - Non-Production Issue
+**Service:** Amazon CloudFront
+**Resolution Time:** 1 hour
+
+### Problem Description
+Customer deployed new version of their web application but users were still seeing old content. They had created invalidation but changes weren't appearing.
+
+### Symptoms
+- Invalidation showing as "Completed" in console
+- Old content still being served
+- Direct S3 access showed new content
+- Issue only affecting some users
+
+### Root Cause Analysis
+1. Customer invalidated `/index.html`
+2. Application was requesting `/index.html?v=123` (cache busting parameter)
+3. CloudFront treats query strings as part of cache key by default
+4. Invalidation didn't match cached objects with query strings
+
+### Resolution
+1. Created new invalidation with wildcard: `/index.html*`
+2. Updated CloudFront cache behavior:
+   - Query String Forwarding: None (ignore query strings for caching)
+   - Or: Whitelist specific query parameters
+3. Implemented proper cache busting with file hashing:
+   - `/static/app.a1b2c3d4.js` instead of `/static/app.js?v=123`
+
+### Prevention
+- Use content-based hashing for static assets
+- Configure query string handling explicitly
+- Test invalidations in staging environment
+- Use versioned paths instead of query string cache busting

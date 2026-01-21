@@ -1,0 +1,302 @@
+# AWS Lambda Troubleshooting Reference - Official Documentation Excerpts
+
+## Source: AWS Documentation
+## Last Updated: 2026-01-15
+## Purpose: Curated Lambda troubleshooting content for RAG knowledge base
+
+---
+
+## Lambda Function Errors
+
+### Invocation Errors
+
+**Error: Task timed out after X seconds**
+
+Cause: Function execution exceeded configured timeout (max 15 minutes)
+
+Resolution:
+1. Increase timeout in function configuration
+2. Optimize code for faster execution
+3. Check for blocking operations:
+   - Database queries
+   - External API calls
+   - S3 operations
+4. Use async patterns for long operations
+5. Consider Step Functions for workflows > 15 minutes
+
+**Error: Runtime exited with error: signal: killed**
+
+Cause: Function exceeded memory limit
+
+Resolution:
+1. Increase memory allocation (also increases CPU)
+2. Optimize memory usage in code
+3. Process data in smaller batches
+4. Use streaming for large files
+
+**Error: Rate Exceeded / TooManyRequestsException**
+
+Cause: Concurrent execution limit reached
+
+Resolution:
+1. Request concurrency limit increase via Service Quotas
+2. Implement exponential backoff in callers
+3. Use Reserved Concurrency for critical functions
+4. Consider SQS to buffer requests
+
+### Permission Errors
+
+**Error: AccessDeniedException**
+
+Cause: Lambda execution role lacks required permissions
+
+Resolution:
+1. Check CloudWatch Logs for specific denied action
+2. Add required permissions to execution role:
+```json
+{
+  "Effect": "Allow",
+  "Action": [
+    "s3:GetObject",
+    "dynamodb:PutItem"
+  ],
+  "Resource": [
+    "arn:aws:s3:::my-bucket/*",
+    "arn:aws:dynamodb:*:*:table/my-table"
+  ]
+}
+```
+
+**Error: The role defined for the function cannot be assumed by Lambda**
+
+Cause: Trust policy doesn't allow Lambda service
+
+Resolution: Ensure trust policy includes:
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Effect": "Allow",
+    "Principal": {"Service": "lambda.amazonaws.com"},
+    "Action": "sts:AssumeRole"
+  }]
+}
+```
+
+---
+
+## VPC Configuration Issues
+
+### Function Can't Access Internet
+
+**Symptoms:**
+- Timeouts calling external APIs
+- Can't reach AWS services
+- DNS resolution failures
+
+**Cause:** Lambda in VPC doesn't have route to internet
+
+**Resolution:**
+1. Create NAT Gateway in public subnet
+2. Update private subnet route table:
+   - 0.0.0.0/0 → nat-gateway-id
+3. Or use VPC Endpoints for AWS services:
+   - S3: Gateway endpoint (free)
+   - DynamoDB: Gateway endpoint (free)
+   - Other services: Interface endpoints
+
+### Function Can't Access VPC Resources
+
+**Symptoms:**
+- Can't connect to RDS
+- Can't reach EC2 instances
+- ElastiCache connection failures
+
+**Resolution:**
+1. Verify Lambda is in correct VPC and subnets
+2. Check security groups:
+   - Lambda SG: Allow outbound to resource port
+   - Resource SG: Allow inbound from Lambda SG
+3. Verify subnets have available IP addresses
+4. Check NACL rules
+
+### Cold Start Latency in VPC
+
+**Cause:** ENI creation adds latency on cold start
+
+**Resolution:**
+1. Use Provisioned Concurrency for consistent latency
+2. Keep functions warm with scheduled invocations
+3. Optimize function initialization code
+4. Use smaller deployment packages
+
+---
+
+## Performance Optimization
+
+### Reducing Cold Starts
+
+**Strategies:**
+1. **Provisioned Concurrency**: Pre-initialize execution environments
+2. **Smaller packages**: Reduce initialization time
+3. **Lazy loading**: Initialize resources on first use
+4. **Keep connections alive**: Reuse database connections
+
+**Code pattern for connection reuse:**
+```python
+import boto3
+
+# Initialize outside handler (reused across invocations)
+dynamodb = boto3.resource('dynamodb')
+table = dynamodb.Table('my-table')
+
+def handler(event, context):
+    # Use pre-initialized connection
+    response = table.get_item(Key={'id': event['id']})
+    return response['Item']
+```
+
+### Memory and CPU Optimization
+
+Lambda allocates CPU proportional to memory:
+- 128 MB = 1/10 vCPU
+- 1,769 MB = 1 vCPU
+- 10,240 MB = 6 vCPUs
+
+**Use AWS Lambda Power Tuning** to find optimal memory:
+1. Deploy Power Tuning Step Function
+2. Run with your function ARN
+3. Analyze cost vs performance tradeoff
+
+### Timeout Best Practices
+
+- Set timeout slightly higher than expected execution
+- Use CloudWatch metrics to monitor actual duration
+- Implement graceful shutdown for approaching timeout:
+```python
+def handler(event, context):
+    remaining_time = context.get_remaining_time_in_millis()
+    if remaining_time < 5000:  # Less than 5 seconds
+        # Save state and exit gracefully
+        return {'status': 'incomplete'}
+```
+
+---
+
+## Logging and Monitoring
+
+### CloudWatch Logs
+
+**Log group naming:** /aws/lambda/<function-name>
+
+**Viewing logs:**
+1. Console: Lambda → Function → Monitor → Logs
+2. CloudWatch Logs Insights:
+```
+fields @timestamp, @message
+| filter @message like /ERROR/
+| sort @timestamp desc
+| limit 100
+```
+
+**Structured logging (recommended):**
+```python
+import json
+import logging
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+def handler(event, context):
+    logger.info(json.dumps({
+        'event': 'processing_started',
+        'request_id': context.aws_request_id,
+        'input_count': len(event.get('records', []))
+    }))
+```
+
+### Key Metrics to Monitor
+
+| Metric | Description | Alert Threshold |
+|--------|-------------|-----------------|
+| Invocations | Number of invocations | Anomaly detection |
+| Errors | Failed invocations | > 0 for critical functions |
+| Duration | Execution time | > 80% of timeout |
+| Throttles | Throttled invocations | > 0 |
+| ConcurrentExecutions | Simultaneous executions | > 80% of limit |
+
+### X-Ray Tracing
+
+Enable active tracing for distributed tracing:
+1. Function configuration → Enable active tracing
+2. Add X-Ray SDK to code:
+```python
+from aws_xray_sdk.core import xray_recorder
+from aws_xray_sdk.core import patch_all
+
+patch_all()  # Automatically trace AWS SDK calls
+
+@xray_recorder.capture('process_item')
+def process_item(item):
+    # Your code here
+    pass
+```
+
+---
+
+## Deployment Issues
+
+### Deployment Package Too Large
+
+**Limits:**
+- Direct upload: 50 MB (zipped)
+- S3 upload: 250 MB (unzipped)
+- Container image: 10 GB
+
+**Resolution:**
+1. Use Lambda Layers for dependencies
+2. Remove unnecessary files (.pyc, tests, docs)
+3. Use container images for large dependencies
+4. Optimize dependencies (e.g., slim versions)
+
+### Environment Variables
+
+**Limits:**
+- Total size: 4 KB
+- Individual variable: No specific limit within total
+
+**For larger configuration:**
+1. Store in Parameter Store or Secrets Manager
+2. Fetch at initialization (cached across invocations)
+```python
+import boto3
+import os
+
+ssm = boto3.client('ssm')
+
+# Fetch once at initialization
+CONFIG = None
+
+def get_config():
+    global CONFIG
+    if CONFIG is None:
+        response = ssm.get_parameter(
+            Name='/myapp/config',
+            WithDecryption=True
+        )
+        CONFIG = response['Parameter']['Value']
+    return CONFIG
+```
+
+### Version and Alias Management
+
+**Best practices:**
+1. Publish versions for production deployments
+2. Use aliases (prod, staging) pointing to versions
+3. Use weighted aliases for canary deployments:
+```bash
+aws lambda update-alias \
+  --function-name my-function \
+  --name prod \
+  --routing-config AdditionalVersionWeights={"2"=0.1}
+```

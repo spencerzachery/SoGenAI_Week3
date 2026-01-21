@@ -213,6 +213,16 @@ For students interested in preparing their own data for RAG:
   - Data connectors
 - **Script:** `scripts/prepare-data-for-rag.py` - Utility for processing various data sources
 
+### Take-Home: Building Custom Connectors
+For students who want to go deeper after the workshop:
+- **Guide:** `docs/CUSTOM_CONNECTOR_GUIDE.md` - Step-by-step instructions for:
+  - Building a support ticket connector (Lambda + EventBridge)
+  - Syncing Confluence wikis to S3
+  - Crawling AWS documentation
+  - Best practices for incremental sync and error handling
+- This is a 300-level exercise, not covered in the 2-hour session
+- Recommend for students who want to apply RAG to their own data sources
+
 ## Post-Session
 
 ### Collect Feedback

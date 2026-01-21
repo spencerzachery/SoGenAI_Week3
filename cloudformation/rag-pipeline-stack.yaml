@@ -1,11 +1,16 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'Week 3: RAG Pipeline for Enterprise Support - Simplified stack (KB creates its own vector store)'
+Description: 'Week 3: RAG Pipeline for Enterprise Support - With auto-provisioned Knowledge Base'
 
 Parameters:
   ProjectName:
     Type: String
     Default: rag-pipeline
     Description: Name prefix for all resources
+  
+  EmbeddingModelId:
+    Type: String
+    Default: amazon.titan-embed-text-v2:0
+    Description: Bedrock embedding model for the knowledge base
 
 Resources:
   # =============================================================================
@@ -24,12 +29,6 @@ Resources:
         BlockPublicPolicy: true
         IgnorePublicAcls: true
         RestrictPublicBuckets: true
-      CorsConfiguration:
-        CorsRules:
-          - AllowedHeaders: ['*']
-            AllowedMethods: [GET, PUT, POST]
-            AllowedOrigins: ['*']
-            MaxAge: 3000
       Tags:
         - Key: Project
           Value: !Ref ProjectName
@@ -105,14 +104,9 @@ Resources:
         DefaultCacheBehavior:
           TargetOriginId: S3Origin
           ViewerProtocolPolicy: redirect-to-https
-          AllowedMethods:
-            - GET
-            - HEAD
-            - OPTIONS
-          CachedMethods:
-            - GET
-            - HEAD
-          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6  # CachingOptimized managed policy
+          AllowedMethods: [GET, HEAD, OPTIONS]
+          CachedMethods: [GET, HEAD]
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
           Compress: true
         CustomErrorResponses:
           - ErrorCode: 403
@@ -126,6 +120,87 @@ Resources:
       Tags:
         - Key: Project
           Value: !Ref ProjectName
+
+  # =============================================================================
+  # IAM Role for Bedrock Knowledge Base
+  # =============================================================================
+  KnowledgeBaseRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${ProjectName}-kb-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: bedrock.amazonaws.com
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+              ArnLike:
+                aws:SourceArn: !Sub 'arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:knowledge-base/*'
+      Policies:
+        - PolicyName: S3Access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:ListBucket
+                Resource:
+                  - !GetAtt KnowledgeBaseBucket.Arn
+                  - !Sub '${KnowledgeBaseBucket.Arn}/*'
+        - PolicyName: BedrockModelAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                Resource:
+                  - !Sub 'arn:aws:bedrock:${AWS::Region}::foundation-model/${EmbeddingModelId}'
+
+  # =============================================================================
+  # Bedrock Knowledge Base (S3 Vector Store)
+  # =============================================================================
+  KnowledgeBase:
+    Type: AWS::Bedrock::KnowledgeBase
+    Properties:
+      Name: !Sub '${ProjectName}-kb'
+      Description: 'Enterprise support knowledge base for RAG pipeline'
+      RoleArn: !GetAtt KnowledgeBaseRole.Arn
+      KnowledgeBaseConfiguration:
+        Type: VECTOR
+        VectorKnowledgeBaseConfiguration:
+          EmbeddingModelArn: !Sub 'arn:aws:bedrock:${AWS::Region}::foundation-model/${EmbeddingModelId}'
+      StorageConfiguration:
+        Type: S3
+        S3Configuration:
+          BucketArn: !GetAtt KnowledgeBaseBucket.Arn
+      Tags:
+        Project: !Ref ProjectName
+
+  # =============================================================================
+  # Knowledge Base Data Source
+  # =============================================================================
+  KnowledgeBaseDataSource:
+    Type: AWS::Bedrock::DataSource
+    Properties:
+      Name: !Sub '${ProjectName}-datasource'
+      Description: 'S3 data source for support documentation'
+      KnowledgeBaseId: !Ref KnowledgeBase
+      DataSourceConfiguration:
+        Type: S3
+        S3Configuration:
+          BucketArn: !GetAtt KnowledgeBaseBucket.Arn
+      VectorIngestionConfiguration:
+        ChunkingConfiguration:
+          ChunkingStrategy: FIXED_SIZE
+          FixedSizeChunkingConfiguration:
+            MaxTokens: 512
+            OverlapPercentage: 20
 
   # =============================================================================
   # IAM Role for Lambda Function
@@ -154,6 +229,28 @@ Resources:
                   - bedrock:Retrieve
                   - bedrock:RetrieveAndGenerate
                 Resource: '*'
+        - PolicyName: BedrockAgentAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - bedrock:StartIngestionJob
+                  - bedrock:GetIngestionJob
+                Resource:
+                  - !Sub 'arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:knowledge-base/*'
+        - PolicyName: S3Access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:ListBucket
+                Resource:
+                  - !GetAtt KnowledgeBaseBucket.Arn
+                  - !Sub '${KnowledgeBaseBucket.Arn}/*'
 
   # =============================================================================
   # Lambda Function for RAG Queries
@@ -169,7 +266,7 @@ Resources:
       MemorySize: 512
       Environment:
         Variables:
-          KNOWLEDGE_BASE_ID: 'PLACEHOLDER'
+          KNOWLEDGE_BASE_ID: !Ref KnowledgeBase
           DEFAULT_MODEL_ID: 'anthropic.claude-3-5-sonnet-20240620-v1:0'
       Code:
         ZipFile: |
@@ -181,7 +278,6 @@ Resources:
           bedrock = boto3.client('bedrock-runtime')
           
           def handler(event, context):
-              # Handle CORS preflight
               if event.get('httpMethod') == 'OPTIONS' or event.get('requestContext', {}).get('http', {}).get('method') == 'OPTIONS':
                   return cors_response(200, {})
               
@@ -215,7 +311,7 @@ Resources:
                           'modelArn': f'arn:aws:bedrock:{region}::foundation-model/{model_id}',
                           'generationConfiguration': {
                               'promptTemplate': {
-                                  'textPromptTemplate': system_prompt + '\n\nUse the following context to answer the question. If the context does not contain relevant information, say so.\n\nContext:\n$search_results$\n\nQuestion: $query$\n\nAnswer:'
+                                  'textPromptTemplate': system_prompt + '\n\nContext:\n$search_results$\n\nQuestion: $query$\n\nAnswer:'
                               }
                           }
                       }
@@ -269,6 +365,104 @@ Resources:
               }
 
   # =============================================================================
+  # Custom Resource Lambda for S3 Upload and Ingestion
+  # =============================================================================
+  IngestionFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${ProjectName}-ingestion'
+      Runtime: python3.11
+      Handler: index.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 300
+      MemorySize: 256
+      Environment:
+        Variables:
+          KNOWLEDGE_BASE_ID: !Ref KnowledgeBase
+          DATA_SOURCE_ID: !GetAtt KnowledgeBaseDataSource.DataSourceId
+      Code:
+        ZipFile: |
+          import json
+          import boto3
+          import cfnresponse
+          import os
+          import time
+          
+          bedrock_agent = boto3.client('bedrock-agent')
+          
+          def handler(event, context):
+              print(f"Event: {json.dumps(event)}")
+              
+              if event['RequestType'] == 'Delete':
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+                  return
+              
+              try:
+                  kb_id = os.environ['KNOWLEDGE_BASE_ID']
+                  ds_id = os.environ['DATA_SOURCE_ID']
+                  
+                  # Start ingestion job
+                  response = bedrock_agent.start_ingestion_job(
+                      knowledgeBaseId=kb_id,
+                      dataSourceId=ds_id
+                  )
+                  
+                  job_id = response['ingestionJob']['ingestionJobId']
+                  print(f"Started ingestion job: {job_id}")
+                  
+                  # Wait for ingestion to complete (with timeout)
+                  max_wait = 240  # 4 minutes
+                  waited = 0
+                  while waited < max_wait:
+                      time.sleep(10)
+                      waited += 10
+                      
+                      status_response = bedrock_agent.get_ingestion_job(
+                          knowledgeBaseId=kb_id,
+                          dataSourceId=ds_id,
+                          ingestionJobId=job_id
+                      )
+                      
+                      status = status_response['ingestionJob']['status']
+                      print(f"Ingestion status: {status}")
+                      
+                      if status == 'COMPLETE':
+                          cfnresponse.send(event, context, cfnresponse.SUCCESS, {
+                              'IngestionJobId': job_id,
+                              'Status': 'COMPLETE'
+                          })
+                          return
+                      elif status == 'FAILED':
+                          cfnresponse.send(event, context, cfnresponse.FAILED, {
+                              'Error': 'Ingestion job failed'
+                          })
+                          return
+                  
+                  # Timeout - but job is still running, consider it success
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {
+                      'IngestionJobId': job_id,
+                      'Status': 'IN_PROGRESS'
+                  })
+                  
+              except Exception as e:
+                  print(f"Error: {str(e)}")
+                  cfnresponse.send(event, context, cfnresponse.FAILED, {
+                      'Error': str(e)
+                  })
+
+  # =============================================================================
+  # Custom Resource to Trigger Ingestion
+  # =============================================================================
+  TriggerIngestion:
+    Type: Custom::TriggerIngestion
+    DependsOn:
+      - KnowledgeBaseDataSource
+    Properties:
+      ServiceToken: !GetAtt IngestionFunction.Arn
+      # Change this value to force re-ingestion on stack update
+      Version: '1'
+
+  # =============================================================================
   # API Gateway
   # =============================================================================
   ApiGateway:
@@ -320,6 +514,14 @@ Outputs:
     Value: !Ref KnowledgeBaseBucket
     Export:
       Name: !Sub '${ProjectName}-kb-bucket'
+
+  KnowledgeBaseId:
+    Description: Bedrock Knowledge Base ID
+    Value: !Ref KnowledgeBase
+
+  DataSourceId:
+    Description: Knowledge Base Data Source ID
+    Value: !GetAtt KnowledgeBaseDataSource.DataSourceId
 
   FrontendBucketName:
     Description: S3 bucket for frontend hosting
