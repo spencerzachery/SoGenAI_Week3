@@ -248,11 +248,27 @@ cd ../cloudformation
 You've successfully built a RAG pipeline using:
 - Amazon Bedrock Knowledge Bases
 - Amazon Titan Embeddings
-- OpenSearch Serverless
+- S3 Vector Store
 - Claude 3.5 Sonnet
 - AWS CloudFormation
 
 **Great job!** 🚀
+
+---
+
+## 📚 Take-Home Exercises (Optional)
+
+Want to go deeper after the workshop? Check out these advanced guides:
+
+- **Data Preparation:** `docs/DATA_PREPARATION_GUIDE.md`
+  - Chunking strategies and their tradeoffs
+  - Metadata filtering for better retrieval
+  - Data quality best practices
+
+- **Custom Connectors:** `docs/CUSTOM_CONNECTOR_GUIDE.md`
+  - Build pipelines to ingest your own data (tickets, wikis, docs)
+  - Lambda + EventBridge patterns for scheduled sync
+  - Real-world examples with code
 
 ---
 
