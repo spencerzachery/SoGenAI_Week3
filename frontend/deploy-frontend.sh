@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # =============================================================================
-# Deploy Frontend to S3
+# Deploy Frontend to S3 + CloudFront
 # =============================================================================
 
 set -e
@@ -32,6 +32,19 @@ if [ -z "$API_ENDPOINT" ] || [ "$API_ENDPOINT" == "None" ]; then
 fi
 
 echo "API Endpoint: $API_ENDPOINT"
+
+# Get CloudFront Distribution ID
+DISTRIBUTION_ID=$(aws cloudformation describe-stacks --stack-name $STACK_NAME \
+    --query "Stacks[0].Outputs[?OutputKey=='CloudFrontDistributionId'].OutputValue" \
+    --output text --region $REGION 2>/dev/null)
+
+if [ -z "$DISTRIBUTION_ID" ] || [ "$DISTRIBUTION_ID" == "None" ]; then
+    echo -e "${RED}❌ Could not get CloudFront Distribution ID from CloudFormation${NC}"
+    echo "Make sure the stack is deployed with the latest template."
+    exit 1
+fi
+
+echo "CloudFront Distribution ID: $DISTRIBUTION_ID"
 
 # Try to get Knowledge Base ID if it exists
 KB_ID=""
@@ -72,10 +85,20 @@ aws s3 sync . s3://${FRONTEND_BUCKET}/ \
     --exclude ".DS_Store" \
     --region $REGION
 
-echo -e "${GREEN}✓ Frontend deployed${NC}"
+echo -e "${GREEN}✓ Frontend files uploaded to S3${NC}"
 
-# Get website URL
-WEBSITE_URL=$(aws cloudformation describe-stacks --stack-name $STACK_NAME \
+# Invalidate CloudFront cache
+echo "Invalidating CloudFront cache..."
+INVALIDATION_ID=$(aws cloudfront create-invalidation \
+    --distribution-id $DISTRIBUTION_ID \
+    --paths "/*" \
+    --query 'Invalidation.Id' \
+    --output text)
+
+echo -e "${GREEN}✓ CloudFront cache invalidation started (ID: $INVALIDATION_ID)${NC}"
+
+# Get CloudFront URL
+CLOUDFRONT_URL=$(aws cloudformation describe-stacks --stack-name $STACK_NAME \
     --query "Stacks[0].Outputs[?OutputKey=='FrontendURL'].OutputValue" \
     --output text --region $REGION)
 
@@ -84,10 +107,12 @@ echo -e "${GREEN}============================================${NC}"
 echo -e "${GREEN}  Frontend Deployment Complete!${NC}"
 echo -e "${GREEN}============================================${NC}"
 echo ""
-echo -e "Frontend URL: ${YELLOW}${WEBSITE_URL}${NC}"
+echo -e "Frontend URL: ${YELLOW}${CLOUDFRONT_URL}${NC}"
 if [ -n "$KB_ID" ]; then
     echo -e "Knowledge Base ID: ${YELLOW}${KB_ID}${NC} (auto-populated)"
 fi
+echo ""
+echo -e "${YELLOW}Note: CloudFront cache invalidation may take 1-2 minutes to complete.${NC}"
 echo ""
 echo "Next steps:"
 echo "1. Open the URL above in your browser"
