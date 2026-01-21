@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAG & Prompt Engineering Lab</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #e0e0e0;
+        }
+        .container {
+            max-width: 1800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        header {
+            text-align: center;
+            padding: 20px 0;
+            border-bottom: 1px solid #333;
+            margin-bottom: 20px;
+        }
+        header h1 {
+            color: #ff9900;
+            font-size: 2.2em;
+            margin-bottom: 8px;
+        }
+        header p { color: #888; font-size: 1em; }
+        
+        /* Tab Navigation */
+        .tab-nav {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 25px;
+        }
+        .tab-btn {
+            padding: 14px 32px;
+            border: 2px solid #444;
+            border-radius: 10px;
+            background: transparent;
+            color: #888;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 1em;
+            font-weight: 600;
+        }
+        .tab-btn.active {
+            border-color: #ff9900;
+            color: #ff9900;
+            background: rgba(255,153,0,0.15);
+        }
+        .tab-btn:hover { border-color: #ff9900; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        
+        .main-grid {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 25px;
+        }
+        
+        .sidebar {
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 20px;
+            height: fit-content;
+            position: sticky;
+            top: 20px;
+        }
+        
+        .sidebar h3 {
+            color: #ff9900;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .config-section {
+            margin-bottom: 18px;
+        }
+        
+        .config-section label {
+            display: block;
+            margin-bottom: 6px;
+            color: #aaa;
+            font-size: 0.85em;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        select, input[type="text"] {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #444;
+            border-radius: 8px;
+            background: #1a1a2e;
+            color: #fff;
+            font-size: 0.95em;
+        }
+        
+        select:focus, input:focus, textarea:focus {
+            outline: none;
+            border-color: #ff9900;
+        }
+        
+        .mode-buttons {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .mode-btn {
+            flex: 1;
+            min-width: 90px;
+            padding: 10px 8px;
+            border: 2px solid #444;
+            border-radius: 8px;
+            background: transparent;
+            color: #888;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 0.75em;
+            text-align: center;
+        }
+        
+        .mode-btn.active {
+            border-color: #ff9900;
+            color: #ff9900;
+            background: rgba(255,153,0,0.1);
+        }
+        
+        .mode-btn:hover { border-color: #ff9900; }
+        
+        .prompt-editor {
+            width: 100%;
+            min-height: 100px;
+            padding: 12px;
+            border: 1px solid #444;
+            border-radius: 8px;
+            background: #0d0d1a;
+            color: #ccc;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.8em;
+            resize: vertical;
+            line-height: 1.5;
+        }
+        
+        .prompt-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        
+        .prompt-action-btn {
+            padding: 6px 12px;
+            border: 1px solid #444;
+            border-radius: 6px;
+            background: transparent;
+            color: #888;
+            cursor: pointer;
+            font-size: 0.75em;
+            transition: all 0.2s;
+        }
+        
+        .prompt-action-btn:hover {
+            border-color: #ff9900;
+            color: #ff9900;
+        }
+        
+        .main-content {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .query-section {
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 20px;
+        }
+        
+        .query-input {
+            width: 100%;
+            padding: 15px;
+            border: 1px solid #444;
+            border-radius: 8px;
+            background: #1a1a2e;
+            color: #fff;
+            font-size: 1em;
+            resize: vertical;
+            min-height: 80px;
+        }
+        
+        .query-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.95em;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+        }
+        
+        .btn-primary {
+            background: #ff9900;
+            color: #000;
+        }
+        
+        .btn-primary:hover {
+            background: #ffad33;
+            transform: translateY(-2px);
+        }
+        
+        .btn-secondary {
+            background: transparent;
+            border: 2px solid #555;
+            color: #888;
+        }
+        
+        .btn-secondary:hover {
+            border-color: #ff9900;
+            color: #ff9900;
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .results-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        .results-section.single-column {
+            grid-template-columns: 1fr;
+        }
+        
+        .result-card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 20px;
+            min-height: 280px;
+        }
+        
+        .result-card.rag { border-left: 4px solid #00c853; }
+        .result-card.direct { border-left: 4px solid #ff5722; }
+        .result-card.prompt-a { border-left: 4px solid #2196f3; }
+        .result-card.prompt-b { border-left: 4px solid #9c27b0; }
+        .result-card.hidden { display: none; }
+        
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #333;
+        }
+        
+        .result-header h3 {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1em;
+        }
+        
+        .badge {
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.7em;
+            font-weight: 600;
+        }
+        
+        .badge-rag { background: #00c853; color: #000; }
+        .badge-direct { background: #ff5722; color: #fff; }
+        .badge-prompt-a { background: #2196f3; color: #fff; }
+        .badge-prompt-b { background: #9c27b0; color: #fff; }
+        
+        .result-content {
+            line-height: 1.6;
+            color: #ccc;
+            font-size: 0.95em;
+        }
+        
+        .result-content.loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 150px;
+            color: #666;
+        }
+        
+        .citations {
+            margin-top: 15px;
+            padding-top: 12px;
+            border-top: 1px solid #333;
+        }
+        
+        .citations h4 {
+            color: #888;
+            font-size: 0.85em;
+            margin-bottom: 8px;
+        }
+        
+        .citation-item {
+            background: #0d0d1a;
+            padding: 8px 10px;
+            border-radius: 6px;
+            margin-bottom: 6px;
+            font-size: 0.8em;
+        }
+        
+        .sample-queries {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #333;
+        }
+        
+        .sample-queries h4 {
+            color: #888;
+            margin-bottom: 8px;
+            font-size: 0.85em;
+        }
+        
+        .sample-query {
+            background: #0d0d1a;
+            padding: 8px 12px;
+            border-radius: 6px;
+            margin-bottom: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.85em;
+        }
+        
+        .sample-query:hover {
+            background: #1a1a2e;
+            border-left: 3px solid #ff9900;
+            padding-left: 9px;
+        }
+        
+        .spinner {
+            width: 36px;
+            height: 36px;
+            border: 3px solid #333;
+            border-top-color: #ff9900;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .status-bar {
+            background: rgba(0,200,83,0.1);
+            border: 1px solid #00c853;
+            border-radius: 6px;
+            padding: 8px 12px;
+            margin-bottom: 15px;
+            font-size: 0.85em;
+            color: #00c853;
+        }
+        
+        .status-bar.warning {
+            background: rgba(255,152,0,0.1);
+            border-color: #ff9800;
+            color: #ff9800;
+        }
+        
+        .collapsible-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            padding: 8px 0;
+        }
+        
+        .collapsible-header:hover { color: #ff9900; }
+        
+        .collapsible-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+        
+        .collapsible-content.expanded { max-height: 500px; }
+        
+        .chevron { transition: transform 0.3s; }
+        .chevron.rotated { transform: rotate(180deg); }
+        
+        /* Prompt Engineering Lab Styles */
+        .pe-sidebar {
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 20px;
+        }
+        
+        .technique-card {
+            background: #0d0d1a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .technique-card:hover {
+            border-color: #ff9900;
+        }
+        
+        .technique-card.selected {
+            border-color: #ff9900;
+            background: rgba(255,153,0,0.1);
+        }
+        
+        .technique-card h4 {
+            color: #ff9900;
+            font-size: 0.9em;
+            margin-bottom: 4px;
+        }
+        
+        .technique-card p {
+            color: #888;
+            font-size: 0.75em;
+            line-height: 1.4;
+        }
+        
+        .prompt-comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        .prompt-panel {
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 20px;
+        }
+        
+        .prompt-panel h4 {
+            color: #ff9900;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .prompt-panel select {
+            margin-bottom: 12px;
+        }
+        
+        .prompt-preview {
+            background: #0d0d1a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 12px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.8em;
+            color: #aaa;
+            max-height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            margin-bottom: 12px;
+        }
+        
+        .technique-info {
+            background: rgba(33,150,243,0.1);
+            border: 1px solid #2196f3;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .technique-info h4 {
+            color: #2196f3;
+            margin-bottom: 8px;
+        }
+        
+        .technique-info p {
+            color: #aaa;
+            font-size: 0.9em;
+            line-height: 1.5;
+        }
+        
+        .technique-info ul {
+            margin-top: 10px;
+            padding-left: 20px;
+        }
+        
+        .technique-info li {
+            color: #888;
+            font-size: 0.85em;
+            margin-bottom: 4px;
+        }
+        
+        @media (max-width: 1200px) {
+            .main-grid { grid-template-columns: 1fr; }
+            .sidebar { position: static; }
+            .results-section { grid-template-columns: 1fr; }
+            .prompt-comparison { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🧪 RAG & Prompt Engineering Lab</h1>
+            <p>Experiment with Retrieval-Augmented Generation and Prompt Engineering Techniques</p>
+        </header>
+        
+        <!-- Tab Navigation -->
+        <div class="tab-nav">
+            <button class="tab-btn active" onclick="switchTab('rag')">
+                🔍 RAG Playground
+            </button>
+            <button class="tab-btn" onclick="switchTab('prompt')">
+                ✨ Prompt Engineering Lab
+            </button>
+        </div>
+        
+        <!-- RAG Playground Tab -->
+        <div id="ragTab" class="tab-content active">
+            <div class="main-grid">
+                <aside class="sidebar">
+                    <h3>⚙️ RAG Configuration</h3>
+                    
+                    <div id="statusBar" class="status-bar" style="display:none;"></div>
+                    
+                    <div class="config-section">
+                        <label>Knowledge Base ID</label>
+                        <input type="text" id="kbId" placeholder="Auto-populated or enter manually">
+                    </div>
+                    
+                    <div class="config-section">
+                        <label>Model</label>
+                        <select id="modelSelect">
+                            <option value="anthropic.claude-3-5-sonnet-20240620-v1:0">Claude 3.5 Sonnet</option>
+                            <option value="anthropic.claude-3-haiku-20240307-v1:0">Claude 3 Haiku (Faster)</option>
+                            <option value="anthropic.claude-3-sonnet-20240229-v1:0">Claude 3 Sonnet</option>
+                        </select>
+                    </div>
+                    
+                    <div class="config-section">
+                        <label>Query Mode</label>
+                        <div class="mode-buttons">
+                            <button class="mode-btn" data-mode="rag" onclick="setMode('rag')">🎯 RAG</button>
+                            <button class="mode-btn" data-mode="direct" onclick="setMode('direct')">💬 Direct</button>
+                            <button class="mode-btn active" data-mode="compare" onclick="setMode('compare')">⚖️ Compare</button>
+                        </div>
+                    </div>
+                    
+                    <div class="config-section">
+                        <label>Prompt Template</label>
+                        <select id="promptStyle" onchange="updatePromptPreview()">
+                            <option value="default">Default</option>
+                            <option value="zero-shot">Zero-Shot</option>
+                            <option value="few-shot">Few-Shot</option>
+                            <option value="chain-of-thought">Chain-of-Thought</option>
+                            <option value="tam-role">TAM Role</option>
+                            <option value="sa-role">Solutions Architect Role</option>
+                            <option value="custom">Custom</option>
+                        </select>
+                    </div>
+                    
+                    <div class="config-section">
+                        <div class="collapsible-header" onclick="togglePromptEditor()">
+                            <label style="margin:0; cursor:pointer;">System Prompt</label>
+                            <span class="chevron" id="promptChevron">▼</span>
+                        </div>
+                        <div class="collapsible-content expanded" id="promptEditorContainer">
+                            <textarea class="prompt-editor" id="promptEditor">You are an AWS support specialist. Provide accurate, helpful responses.</textarea>
+                            <div class="prompt-actions">
+                                <button class="prompt-action-btn" onclick="resetPrompt()">Reset</button>
+                                <button class="prompt-action-btn" onclick="copyPrompt()">Copy</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="sample-queries">
+                        <h4>📝 Sample Queries</h4>
+                        <div class="sample-query" onclick="setQuery(this.textContent, 'rag')">How do I request an EC2 service limit increase?</div>
+                        <div class="sample-query" onclick="setQuery(this.textContent, 'rag')">A customer's Lambda function is timing out. How should I troubleshoot?</div>
+                        <div class="sample-query" onclick="setQuery(this.textContent, 'rag')">What's the best practice for Route 53 health checks?</div>
+                    </div>
+                </aside>
+                
+                <main class="main-content">
+                    <section class="query-section">
+                        <textarea class="query-input" id="queryInput" placeholder="Enter your support question here... (Ctrl+Enter to submit)"></textarea>
+                        <div class="query-actions">
+                            <button class="btn btn-primary" onclick="submitQuery()" id="submitBtn">🚀 Submit Query</button>
+                            <button class="btn btn-secondary" onclick="clearResults()">🗑️ Clear</button>
+                        </div>
+                    </section>
+                    
+                    <section class="results-section" id="resultsSection">
+                        <div class="result-card rag" id="ragCard">
+                            <div class="result-header">
+                                <h3><span class="badge badge-rag">RAG</span> With Knowledge Base</h3>
+                            </div>
+                            <div class="result-content" id="ragResult">Results will appear here after submitting a query...</div>
+                            <div class="citations" id="ragCitations" style="display:none;">
+                                <h4>📚 Sources</h4>
+                                <div id="citationsList"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="result-card direct" id="directCard">
+                            <div class="result-header">
+                                <h3><span class="badge badge-direct">Direct</span> Without Knowledge Base</h3>
+                            </div>
+                            <div class="result-content" id="directResult">Results will appear here after submitting a query...</div>
+                        </div>
+                    </section>
+                </main>
+            </div>
+        </div>
+        
+        <!-- Prompt Engineering Lab Tab -->
+        <div id="promptTab" class="tab-content">
+            <div class="main-grid">
+                <aside class="sidebar pe-sidebar">
+                    <h3>🎓 Prompt Techniques</h3>
+                    
+                    <div id="peStatusBar" class="status-bar" style="display:none;"></div>
+                    
+                    <div class="config-section">
+                        <label>Model</label>
+                        <select id="peModelSelect">
+                            <option value="anthropic.claude-3-5-sonnet-20240620-v1:0">Claude 3.5 Sonnet</option>
+                            <option value="anthropic.claude-3-haiku-20240307-v1:0">Claude 3 Haiku (Faster)</option>
+                            <option value="anthropic.claude-3-sonnet-20240229-v1:0">Claude 3 Sonnet</option>
+                        </select>
+                    </div>
+                    
+                    <div class="technique-card" onclick="selectTechnique('zero-shot')" id="tech-zero-shot">
+                        <h4>Zero-Shot</h4>
+                        <p>Direct instruction without examples. Tests model's base knowledge.</p>
+                    </div>
+                    
+                    <div class="technique-card" onclick="selectTechnique('few-shot')" id="tech-few-shot">
+                        <h4>Few-Shot</h4>
+                        <p>Provide examples to guide response format and style.</p>
+                    </div>
+                    
+                    <div class="technique-card" onclick="selectTechnique('chain-of-thought')" id="tech-chain-of-thought">
+                        <h4>Chain-of-Thought</h4>
+                        <p>Step-by-step reasoning for complex problems.</p>
+                    </div>
+                    
+                    <div class="technique-card" onclick="selectTechnique('role-based')" id="tech-role-based">
+                        <h4>Role-Based</h4>
+                        <p>Assign persona to shape expertise and tone.</p>
+                    </div>
+                    
+                    <div class="technique-card" onclick="selectTechnique('structured-output')" id="tech-structured-output">
+                        <h4>Structured Output</h4>
+                        <p>Request specific format (JSON, lists, tables).</p>
+                    </div>
+                    
+                    <div class="technique-card" onclick="selectTechnique('self-consistency')" id="tech-self-consistency">
+                        <h4>Self-Consistency</h4>
+                        <p>Ask model to verify and refine its answer.</p>
+                    </div>
+                    
+                    <div class="sample-queries">
+                        <h4>📝 Sample Prompts</h4>
+                        <div class="sample-query" onclick="setQuery(this.textContent, 'prompt')">Explain how AWS Lambda cold starts work</div>
+                        <div class="sample-query" onclick="setQuery(this.textContent, 'prompt')">A customer reports intermittent 504 errors. Help troubleshoot.</div>
+                        <div class="sample-query" onclick="setQuery(this.textContent, 'prompt')">What are the key differences between ALB and NLB?</div>
+                        <div class="sample-query" onclick="setQuery(this.textContent, 'prompt')">Design a highly available architecture for a web application</div>
+                    </div>
+                </aside>
+                
+                <main class="main-content">
+                    <div class="technique-info" id="techniqueInfo">
+                        <h4>💡 Select a Technique</h4>
+                        <p>Choose a prompt engineering technique from the sidebar to see how it works and compare results side-by-side.</p>
+                    </div>
+                    
+                    <section class="query-section">
+                        <textarea class="query-input" id="peQueryInput" placeholder="Enter your question to compare prompt techniques... (Ctrl+Enter to submit)"></textarea>
+                        <div class="query-actions">
+                            <button class="btn btn-primary" onclick="submitPromptComparison()" id="peSubmitBtn">🚀 Compare Techniques</button>
+                            <button class="btn btn-secondary" onclick="clearPromptResults()">🗑️ Clear</button>
+                        </div>
+                    </section>
+                    
+                    <div class="prompt-comparison">
+                        <div class="prompt-panel">
+                            <h4><span class="badge badge-prompt-a">A</span> Technique A</h4>
+                            <select id="promptASelect" onchange="updatePromptAPreview()">
+                                <option value="zero-shot">Zero-Shot</option>
+                                <option value="few-shot">Few-Shot</option>
+                                <option value="chain-of-thought">Chain-of-Thought</option>
+                                <option value="role-tam">Role: TAM</option>
+                                <option value="role-sa">Role: Solutions Architect</option>
+                                <option value="structured-json">Structured: JSON</option>
+                                <option value="structured-list">Structured: Numbered List</option>
+                                <option value="self-consistency">Self-Consistency</option>
+                            </select>
+                            <div class="prompt-preview" id="promptAPreview">Select a technique to see the prompt...</div>
+                            <div class="result-card prompt-a">
+                                <div class="result-header">
+                                    <h3>Response A</h3>
+                                </div>
+                                <div class="result-content" id="promptAResult">Results will appear here...</div>
+                            </div>
+                        </div>
+                        
+                        <div class="prompt-panel">
+                            <h4><span class="badge badge-prompt-b">B</span> Technique B</h4>
+                            <select id="promptBSelect" onchange="updatePromptBPreview()">
+                                <option value="zero-shot">Zero-Shot</option>
+                                <option value="few-shot" selected>Few-Shot</option>
+                                <option value="chain-of-thought">Chain-of-Thought</option>
+                                <option value="role-tam">Role: TAM</option>
+                                <option value="role-sa">Role: Solutions Architect</option>
+                                <option value="structured-json">Structured: JSON</option>
+                                <option value="structured-list">Structured: Numbered List</option>
+                                <option value="self-consistency">Self-Consistency</option>
+                            </select>
+                            <div class="prompt-preview" id="promptBPreview">Select a technique to see the prompt...</div>
+                            <div class="result-card prompt-b">
+                                <div class="result-header">
+                                    <h3>Response B</h3>
+                                </div>
+                                <div class="result-content" id="promptBResult">Results will appear here...</div>
+                            </div>
+                        </div>
+                    </div>
+                </main>
+            </div>
+        </div>
+    </div>
+    
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

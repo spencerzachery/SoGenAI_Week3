@@ -1,0 +1,277 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Week 3: RAG Pipeline for Enterprise Support - Simplified stack (KB creates its own vector store)'
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: rag-pipeline
+    Description: Name prefix for all resources
+
+Resources:
+  # =============================================================================
+  # S3 Bucket for Knowledge Base Content
+  # =============================================================================
+  KnowledgeBaseBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${ProjectName}-kb-${AWS::AccountId}-${AWS::Region}'
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders: ['*']
+            AllowedMethods: [GET, PUT, POST]
+            AllowedOrigins: ['*']
+            MaxAge: 3000
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  # =============================================================================
+  # S3 Bucket for Frontend Hosting
+  # =============================================================================
+  FrontendBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${ProjectName}-frontend-${AWS::AccountId}-${AWS::Region}'
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: error.html
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  FrontendBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref FrontendBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: PublicReadGetObject
+            Effect: Allow
+            Principal: '*'
+            Action: s3:GetObject
+            Resource: !Sub '${FrontendBucket.Arn}/*'
+
+  # =============================================================================
+  # IAM Role for Lambda Function
+  # =============================================================================
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${ProjectName}-lambda-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: BedrockAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                  - bedrock:Retrieve
+                  - bedrock:RetrieveAndGenerate
+                Resource: '*'
+
+  # =============================================================================
+  # Lambda Function for RAG Queries
+  # =============================================================================
+  QueryFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${ProjectName}-query'
+      Runtime: python3.11
+      Handler: index.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 60
+      MemorySize: 512
+      Environment:
+        Variables:
+          KNOWLEDGE_BASE_ID: 'PLACEHOLDER'
+          DEFAULT_MODEL_ID: 'anthropic.claude-3-5-sonnet-20240620-v1:0'
+      Code:
+        ZipFile: |
+          import json
+          import boto3
+          import os
+          
+          bedrock_agent = boto3.client('bedrock-agent-runtime')
+          bedrock = boto3.client('bedrock-runtime')
+          
+          def handler(event, context):
+              # Handle CORS preflight
+              if event.get('httpMethod') == 'OPTIONS' or event.get('requestContext', {}).get('http', {}).get('method') == 'OPTIONS':
+                  return cors_response(200, {})
+              
+              try:
+                  body = json.loads(event.get('body', '{}'))
+                  query = body.get('query', '')
+                  use_rag = body.get('useRag', True)
+                  kb_id = body.get('knowledgeBaseId') or os.environ.get('KNOWLEDGE_BASE_ID')
+                  model_id = body.get('modelId') or os.environ.get('DEFAULT_MODEL_ID')
+                  system_prompt = body.get('systemPrompt') or 'You are an AWS support specialist. Provide accurate, helpful responses.'
+                  
+                  if use_rag and kb_id and kb_id != 'PLACEHOLDER':
+                      response = query_with_rag(query, kb_id, model_id, system_prompt)
+                  else:
+                      response = query_without_rag(query, model_id, system_prompt)
+                  
+                  return cors_response(200, response)
+              except Exception as e:
+                  print(f"Error: {str(e)}")
+                  return cors_response(500, {'error': str(e)})
+          
+          def query_with_rag(query, kb_id, model_id, system_prompt):
+              region = os.environ.get('AWS_REGION', 'us-east-1')
+              
+              response = bedrock_agent.retrieve_and_generate(
+                  input={'text': query},
+                  retrieveAndGenerateConfiguration={
+                      'type': 'KNOWLEDGE_BASE',
+                      'knowledgeBaseConfiguration': {
+                          'knowledgeBaseId': kb_id,
+                          'modelArn': f'arn:aws:bedrock:{region}::foundation-model/{model_id}',
+                          'generationConfiguration': {
+                              'promptTemplate': {
+                                  'textPromptTemplate': system_prompt + '\n\nUse the following context to answer the question. If the context does not contain relevant information, say so.\n\nContext:\n$search_results$\n\nQuestion: $query$\n\nAnswer:'
+                              }
+                          }
+                      }
+                  }
+              )
+              
+              citations = []
+              for citation in response.get('citations', []):
+                  for ref in citation.get('retrievedReferences', []):
+                      loc = ref.get('location', {}).get('s3Location', {})
+                      citations.append({
+                          'uri': loc.get('uri', ''),
+                          'text': ref.get('content', {}).get('text', '')[:200]
+                      })
+              
+              return {
+                  'response': response['output']['text'],
+                  'citations': citations,
+                  'mode': 'RAG',
+                  'model': model_id
+              }
+          
+          def query_without_rag(query, model_id, system_prompt):
+              response = bedrock.invoke_model(
+                  modelId=model_id,
+                  body=json.dumps({
+                      'anthropic_version': 'bedrock-2023-05-31',
+                      'max_tokens': 2048,
+                      'system': system_prompt,
+                      'messages': [{'role': 'user', 'content': query}]
+                  })
+              )
+              
+              result = json.loads(response['body'].read())
+              return {
+                  'response': result['content'][0]['text'],
+                  'mode': 'Direct',
+                  'model': model_id
+              }
+          
+          def cors_response(status_code, body):
+              return {
+                  'statusCode': status_code,
+                  'headers': {
+                      'Content-Type': 'application/json',
+                      'Access-Control-Allow-Origin': '*',
+                      'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+                      'Access-Control-Allow-Methods': 'OPTIONS,POST,GET'
+                  },
+                  'body': json.dumps(body)
+              }
+
+  # =============================================================================
+  # API Gateway
+  # =============================================================================
+  ApiGateway:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: !Sub '${ProjectName}-api'
+      ProtocolType: HTTP
+      CorsConfiguration:
+        AllowOrigins: ['*']
+        AllowMethods: [GET, POST, OPTIONS]
+        AllowHeaders: ['*']
+
+  ApiIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref ApiGateway
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !GetAtt QueryFunction.Arn
+      PayloadFormatVersion: '2.0'
+
+  ApiRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref ApiGateway
+      RouteKey: 'POST /query'
+      Target: !Sub 'integrations/${ApiIntegration}'
+
+  ApiStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref ApiGateway
+      StageName: prod
+      AutoDeploy: true
+
+  LambdaApiPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref QueryFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ApiGateway}/*'
+
+# =============================================================================
+# Outputs
+# =============================================================================
+Outputs:
+  KnowledgeBaseBucketName:
+    Description: S3 bucket for knowledge base content
+    Value: !Ref KnowledgeBaseBucket
+    Export:
+      Name: !Sub '${ProjectName}-kb-bucket'
+
+  FrontendBucketName:
+    Description: S3 bucket for frontend hosting
+    Value: !Ref FrontendBucket
+
+  FrontendURL:
+    Description: Frontend website URL
+    Value: !GetAtt FrontendBucket.WebsiteURL
+
+  ApiEndpoint:
+    Description: API Gateway endpoint URL
+    Value: !Sub 'https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/prod'
+
+  LambdaFunctionName:
+    Description: Lambda function name
+    Value: !Ref QueryFunction

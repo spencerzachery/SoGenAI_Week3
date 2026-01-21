@@ -1,0 +1,204 @@
+# AWS Service Limits and Quotas - TAM Knowledge Base
+
+## Document Type: Enterprise Support Runbook
+## Last Updated: 2026-01-15
+## Audience: Technical Account Managers, Support Engineers
+
+---
+
+## SECTION 1: Service Quota Management Overview
+
+### What TAMs Need to Know
+Service quotas (formerly service limits) are critical for Enterprise customers planning growth. As a TAM, you should:
+- Proactively review customer quotas during Business Reviews
+- Set up CloudWatch alarms at 80% threshold
+- Document quota increase patterns for capacity planning
+- Understand which quotas are "soft" (adjustable) vs "hard" (fixed)
+
+### Key Service Quotas Console URL
+https://console.aws.amazon.com/servicequotas/
+
+---
+
+## SECTION 2: EC2 Service Quotas
+
+### Common EC2 Quotas and Default Values
+| Quota Name | Default | Adjustable | Typical Enterprise Value |
+|------------|---------|------------|-------------------------|
+| Running On-Demand Standard Instances | 5 vCPUs | Yes | 500-5000 vCPUs |
+| Running On-Demand G/P Instances | 0 vCPUs | Yes | 100-1000 vCPUs |
+| Elastic IP addresses per region | 5 | Yes | 50-500 |
+| Security groups per VPC | 2,500 | Yes | 2,500-5,000 |
+| Rules per security group | 60 | Yes | 60-200 |
+
+### TAM Guidance: EC2 Limit Increase Process
+
+**Step 1: Assess Customer Need**
+- Review current usage in Service Quotas console
+- Check Trusted Advisor for limit warnings
+- Understand business justification (new workload, scaling event, etc.)
+
+**Step 2: Request Increase via Service Quotas**
+1. Navigate to Service Quotas console
+2. Select "Amazon Elastic Compute Cloud (Amazon EC2)"
+3. Search for the specific quota
+4. Click "Request quota increase"
+5. Enter desired value with business justification
+
+**Step 3: For Urgent Requests (Production Impact)**
+- Open support case with severity "Production system down"
+- Include: Current usage, requested value, business impact, timeline
+- TAMs can escalate via internal channels if needed
+
+### Common EC2 Limit Issues and Resolutions
+
+**Issue: "You have requested more vCPU capacity than your current vCPU limit"**
+- Resolution: Request vCPU limit increase for the specific instance family
+- Workaround: Use different instance family with available capacity
+- Prevention: Set up CloudWatch alarms on vCPU usage
+
+**Issue: "Maximum number of Elastic IPs reached"**
+- Resolution: Request EIP limit increase
+- Alternative: Use NAT Gateway for outbound traffic
+- Best Practice: Release unused EIPs regularly
+
+---
+
+## SECTION 3: Lambda Service Quotas
+
+### Lambda Quotas Reference
+| Quota Name | Default | Adjustable | Notes |
+|------------|---------|------------|-------|
+| Concurrent executions | 1,000 | Yes | Account-level |
+| Function timeout | 15 min | No | Hard limit |
+| Memory allocation | 10,240 MB | No | Hard limit |
+| Deployment package (zip) | 50 MB | No | Use layers for larger |
+| Deployment package (unzipped) | 250 MB | No | Hard limit |
+| Environment variables | 4 KB | No | Hard limit |
+
+### TAM Guidance: Lambda Throttling Resolution
+
+**Symptoms of Lambda Throttling:**
+- Error: "Rate Exceeded" or "TooManyRequestsException"
+- CloudWatch metric: Throttles > 0
+- Increased latency in downstream services
+
+**Resolution Steps:**
+1. Check current concurrent execution usage in CloudWatch
+2. Identify which functions are consuming capacity
+3. Request concurrency limit increase if needed
+4. Consider Reserved Concurrency for critical functions
+5. Implement Provisioned Concurrency to eliminate cold starts
+
+**Proactive Measures:**
+- Set CloudWatch alarm: Throttles > 0
+- Monitor ConcurrentExecutions metric
+- Use AWS Lambda Power Tuning for optimization
+
+---
+
+## SECTION 4: API Gateway Quotas
+
+### API Gateway Limits
+| Quota Name | Default | Adjustable |
+|------------|---------|------------|
+| Requests per second (REST) | 10,000 | Yes |
+| Burst limit | 5,000 | Yes |
+| WebSocket connections | 500/sec | Yes |
+| Payload size | 10 MB | No |
+| Integration timeout | 29 sec | No |
+
+### TAM Guidance: API Gateway Throttling
+
+**When Customers Hit API Gateway Limits:**
+1. Review CloudWatch metrics: Count, 4XXError, 5XXError
+2. Check if throttling is at account or API level
+3. Implement usage plans for API key-based throttling
+4. Consider caching to reduce backend calls
+
+**Best Practices to Share with Customers:**
+- Implement exponential backoff in client applications
+- Use CloudFront in front of API Gateway for caching
+- Consider regional endpoints for lower latency
+
+---
+
+## SECTION 5: DynamoDB Capacity
+
+### DynamoDB Capacity Modes
+
+**On-Demand Mode:**
+- No capacity planning required
+- Automatic scaling
+- Higher per-request cost
+- Best for: Unpredictable workloads, new applications
+
+**Provisioned Mode:**
+- RCU: 1 = 1 strongly consistent read/sec (4 KB)
+- WCU: 1 = 1 write/sec (1 KB)
+- Auto Scaling available
+- Best for: Predictable workloads, cost optimization
+
+### DynamoDB Hard Limits
+| Limit | Value |
+|-------|-------|
+| Item size | 400 KB |
+| Partition key length | 2,048 bytes |
+| Sort key length | 1,024 bytes |
+| Table size | Unlimited |
+| GSI per table | 20 |
+| LSI per table | 5 |
+
+---
+
+## SECTION 6: Monitoring and Alerting
+
+### Trusted Advisor Checks (Business/Enterprise Support)
+- Service Limits check: Reviews 50+ common limits
+- Alerts when usage exceeds 80% of limit
+- Available in Trusted Advisor dashboard
+
+### CloudWatch Alarms for Quotas
+```
+# Example: Lambda Concurrent Executions alarm
+aws cloudwatch put-metric-alarm \
+  --alarm-name "Lambda-ConcurrentExecutions-Warning" \
+  --metric-name ConcurrentExecutions \
+  --namespace AWS/Lambda \
+  --statistic Maximum \
+  --period 60 \
+  --threshold 800 \
+  --comparison-operator GreaterThanThreshold \
+  --evaluation-periods 3 \
+  --alarm-actions arn:aws:sns:region:account:topic
+```
+
+### Service Quotas CloudWatch Integration
+- Service Quotas publishes usage metrics to CloudWatch
+- Create alarms directly from Service Quotas console
+- Namespace: AWS/Usage
+
+---
+
+## SECTION 7: Enterprise Support Escalation
+
+### When to Escalate Limit Requests
+- Customer has production impact
+- Standard request timeline doesn't meet business need
+- Request was denied but customer has valid justification
+- Large-scale limit increase (10x or more)
+
+### Escalation Process for TAMs
+1. Gather: Current usage, requested value, business justification, timeline
+2. Open internal escalation ticket with service team
+3. Provide customer communication updates
+4. Document outcome for future reference
+
+### Information Needed for Escalation
+- AWS Account ID
+- Region(s) affected
+- Specific quota name and current value
+- Requested value
+- Business justification
+- Timeline/urgency
+- Impact if not approved

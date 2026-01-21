@@ -1,0 +1,321 @@
+# AWS Troubleshooting Guide - Enterprise Support Knowledge Base
+
+## Overview
+This document covers common error patterns, debugging techniques, log analysis approaches, and support case escalation procedures for Enterprise Support scenarios.
+
+## Common Error Patterns
+
+### Authentication and Authorization Errors
+
+#### AccessDenied / 403 Forbidden
+**Common Causes:**
+- Missing IAM permissions
+- Incorrect resource ARN
+- S3 bucket policy blocking access
+- VPC endpoint policy restrictions
+- AWS Organizations SCP blocking action
+
+**Troubleshooting Steps:**
+1. Check IAM policy attached to user/role
+2. Verify resource ARN is correct
+3. Check for explicit deny statements
+4. Review S3 bucket policy and ACLs
+5. Check VPC endpoint policies
+6. Review Organizations SCPs
+
+**Resolution Example:**
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "s3:GetObject",
+      "Resource": "arn:aws:s3:::my-bucket/*"
+    }
+  ]
+}
+```
+
+#### InvalidClientTokenId
+**Cause:** AWS credentials are invalid or expired
+
+**Resolution:**
+1. Verify access key ID is correct
+2. Check if credentials have been rotated
+3. Ensure credentials are not expired (for temporary credentials)
+4. Regenerate access keys if needed
+
+#### ExpiredToken
+**Cause:** Temporary security credentials have expired
+
+**Resolution:**
+1. Request new temporary credentials
+2. Check STS session duration settings
+3. Implement credential refresh logic
+4. Use IAM roles for EC2 instances
+
+### Network and Connectivity Errors
+
+#### Connection Timeout
+**Common Causes:**
+- Security group blocking traffic
+- NACL blocking traffic
+- Route table misconfiguration
+- DNS resolution failure
+- Service endpoint unreachable
+
+**Troubleshooting Steps:**
+1. Verify security group allows outbound traffic
+2. Check NACL rules (both inbound and outbound)
+3. Verify route table has correct routes
+4. Test DNS resolution: `nslookup <endpoint>`
+5. Check VPC endpoint configuration
+6. Verify internet gateway/NAT gateway
+
+#### Connection Refused
+**Common Causes:**
+- Service not running on target
+- Wrong port number
+- Firewall blocking connection
+- Service not listening on expected interface
+
+**Troubleshooting Steps:**
+1. Verify service is running: `systemctl status <service>`
+2. Check listening ports: `netstat -tlnp`
+3. Verify correct port in connection string
+4. Check host-based firewall (iptables, firewalld)
+
+### Service-Specific Errors
+
+#### Lambda: Task timed out
+**Common Causes:**
+- Function execution exceeds timeout
+- External API calls taking too long
+- Database queries slow
+- VPC cold start delays
+
+**Resolution:**
+1. Increase timeout setting (max 15 minutes)
+2. Optimize code for performance
+3. Use connection pooling for databases
+4. Consider async processing for long tasks
+5. Move to larger memory allocation
+
+#### RDS: Too many connections
+**Common Causes:**
+- Connection pool exhaustion
+- Connection leaks in application
+- Insufficient max_connections setting
+
+**Resolution:**
+1. Implement connection pooling (RDS Proxy)
+2. Fix connection leaks in application code
+3. Increase instance size for more connections
+4. Review and close idle connections
+
+#### S3: SlowDown
+**Cause:** Request rate exceeded for prefix
+
+**Resolution:**
+1. Distribute objects across multiple prefixes
+2. Implement exponential backoff
+3. Use S3 Transfer Acceleration
+4. Consider CloudFront for read-heavy workloads
+
+## Debugging Techniques
+
+### CloudWatch Logs Analysis
+
+#### Setting Up Log Insights Queries
+```
+# Find errors in Lambda logs
+fields @timestamp, @message
+| filter @message like /ERROR/
+| sort @timestamp desc
+| limit 100
+
+# Analyze API Gateway latency
+fields @timestamp, @message
+| filter @message like /Integration latency/
+| parse @message "Integration latency: * ms" as latency
+| stats avg(latency), max(latency), min(latency) by bin(5m)
+
+# Find specific error codes
+fields @timestamp, @message
+| filter @message like /statusCode/
+| parse @message '"statusCode":*,' as code
+| filter code >= 400
+| stats count() by code
+```
+
+#### Log Retention Best Practices
+- Set appropriate retention periods
+- Use log groups for organization
+- Export to S3 for long-term storage
+- Use subscription filters for real-time processing
+
+### X-Ray Tracing
+
+#### Enabling X-Ray
+1. Add X-Ray SDK to application
+2. Configure sampling rules
+3. Enable active tracing on Lambda/API Gateway
+4. Use annotations for custom metadata
+
+#### Analyzing Traces
+- Identify slow segments
+- Find error root causes
+- Analyze service dependencies
+- Compare trace patterns
+
+### VPC Flow Logs Analysis
+
+#### Common Patterns
+```
+# Rejected traffic (security group/NACL)
+REJECT in flow logs indicates blocked traffic
+
+# Accepted but no response
+May indicate application-level issue
+
+# High volume from single IP
+Potential DDoS or misconfigured client
+```
+
+## Log Analysis Approaches
+
+### Structured Logging Best Practices
+```json
+{
+  "timestamp": "2024-01-15T10:30:00Z",
+  "level": "ERROR",
+  "service": "order-service",
+  "traceId": "abc123",
+  "message": "Failed to process order",
+  "orderId": "ORD-456",
+  "error": "Database connection timeout",
+  "duration_ms": 30000
+}
+```
+
+### Log Aggregation Strategies
+1. **CloudWatch Logs**
+   - Native AWS integration
+   - Log Insights for queries
+   - Metric filters for alerting
+
+2. **OpenSearch Service**
+   - Full-text search
+   - Visualization with dashboards
+   - Anomaly detection
+
+3. **Third-Party Solutions**
+   - Datadog, Splunk, Sumo Logic
+   - Advanced analytics
+   - Cross-platform support
+
+### Correlation Techniques
+- Use consistent trace IDs across services
+- Include request IDs in all logs
+- Timestamp synchronization (NTP)
+- Tag logs with environment and version
+
+## Support Case Escalation
+
+### When to Open a Support Case
+- Production system impacted
+- Unable to resolve with documentation
+- Suspected AWS service issue
+- Need architectural guidance
+- Security incident
+
+### Information to Include
+
+#### For Technical Issues
+```
+1. Account ID: 123456789012
+2. Region: us-east-1
+3. Service: Lambda
+4. Resource ARN: arn:aws:lambda:us-east-1:123456789012:function:my-function
+
+5. Issue Description:
+   - What you're trying to do
+   - What's happening instead
+   - When it started
+
+6. Error Messages:
+   [Paste exact error messages]
+
+7. Steps to Reproduce:
+   1. Step one
+   2. Step two
+   3. Step three
+
+8. What You've Tried:
+   - Attempted solution 1
+   - Attempted solution 2
+
+9. Business Impact:
+   - Number of users affected
+   - Revenue impact
+   - SLA considerations
+```
+
+#### For Limit Increase Requests
+```
+1. Service: EC2
+2. Quota Name: Running On-Demand Standard instances
+3. Current Limit: 20
+4. Requested Limit: 50
+5. Region: us-east-1
+
+6. Business Justification:
+   - Why you need the increase
+   - Expected usage pattern
+   - Timeline for usage
+
+7. Current Usage: 18/20 (90%)
+```
+
+### Severity Levels
+
+| Severity | Response Time | Use When |
+|----------|---------------|----------|
+| Critical | 15 minutes | Production down, no workaround |
+| Urgent | 1 hour | Production impaired |
+| High | 4 hours | Non-production issue |
+| Normal | 24 hours | General questions |
+
+### Escalation Path
+1. **Initial Case**: Provide all relevant information
+2. **First Escalation**: Request supervisor review
+3. **TAM Escalation**: Engage Technical Account Manager
+4. **Service Team**: For complex service-specific issues
+
+### Following Up on Cases
+- Respond promptly to AWS questions
+- Provide additional logs when requested
+- Test suggested solutions
+- Update case with results
+- Close case when resolved
+
+## Preventive Measures
+
+### Monitoring Setup
+- CloudWatch alarms for key metrics
+- Anomaly detection for unusual patterns
+- Synthetic monitoring for endpoints
+- Log-based metrics for errors
+
+### Automation
+- Auto-remediation with Lambda
+- Systems Manager Automation
+- EventBridge rules for responses
+- ChatOps integration
+
+### Documentation
+- Maintain runbooks for common issues
+- Document architecture decisions
+- Keep contact information current
+- Regular review and updates

@@ -1,0 +1,259 @@
+# AWS Best Practices - Enterprise Support Knowledge Base
+
+## Overview
+This document covers AWS Well-Architected Framework guidance, cost optimization strategies, security hardening recommendations, and performance tuning tips for Enterprise Support scenarios.
+
+## Well-Architected Framework Guidance
+
+### The Six Pillars
+
+#### 1. Operational Excellence
+**Design Principles:**
+- Perform operations as code
+- Make frequent, small, reversible changes
+- Refine operations procedures frequently
+- Anticipate failure
+- Learn from all operational failures
+
+**Key Practices:**
+- Use Infrastructure as Code (CloudFormation, CDK, Terraform)
+- Implement CI/CD pipelines
+- Create runbooks for common operations
+- Set up monitoring and alerting
+- Conduct game days and chaos engineering
+
+#### 2. Security
+**Design Principles:**
+- Implement a strong identity foundation
+- Enable traceability
+- Apply security at all layers
+- Automate security best practices
+- Protect data in transit and at rest
+- Keep people away from data
+- Prepare for security events
+
+**Key Practices:**
+- Use IAM roles instead of long-term credentials
+- Enable MFA for all users
+- Encrypt data at rest and in transit
+- Use VPC for network isolation
+- Enable CloudTrail and GuardDuty
+- Implement least privilege access
+
+#### 3. Reliability
+**Design Principles:**
+- Automatically recover from failure
+- Test recovery procedures
+- Scale horizontally
+- Stop guessing capacity
+- Manage change in automation
+
+**Key Practices:**
+- Design for failure (multi-AZ, multi-region)
+- Implement health checks and auto-healing
+- Use managed services when possible
+- Set up backup and disaster recovery
+- Test failover regularly
+
+#### 4. Performance Efficiency
+**Design Principles:**
+- Democratize advanced technologies
+- Go global in minutes
+- Use serverless architectures
+- Experiment more often
+- Consider mechanical sympathy
+
+**Key Practices:**
+- Right-size resources based on metrics
+- Use caching (ElastiCache, CloudFront)
+- Choose appropriate database for workload
+- Optimize network performance
+- Monitor and iterate
+
+#### 5. Cost Optimization
+**Design Principles:**
+- Implement cloud financial management
+- Adopt a consumption model
+- Measure overall efficiency
+- Stop spending money on undifferentiated heavy lifting
+- Analyze and attribute expenditure
+
+**Key Practices:**
+- Use Reserved Instances and Savings Plans
+- Implement auto-scaling
+- Delete unused resources
+- Use S3 lifecycle policies
+- Monitor with Cost Explorer
+
+#### 6. Sustainability
+**Design Principles:**
+- Understand your impact
+- Establish sustainability goals
+- Maximize utilization
+- Anticipate and adopt new offerings
+- Use managed services
+- Reduce downstream impact
+
+## Cost Optimization Strategies
+
+### Right-Sizing Recommendations
+1. **Analyze Current Usage**
+   - Use AWS Compute Optimizer
+   - Review CloudWatch metrics
+   - Check CPU, memory, network utilization
+
+2. **Identify Optimization Opportunities**
+   - Instances running < 40% CPU average
+   - Over-provisioned storage
+   - Unused Elastic IPs
+   - Idle load balancers
+
+3. **Implementation Steps**
+   - Start with non-production environments
+   - Test performance after changes
+   - Monitor for 2 weeks before further changes
+   - Document baseline metrics
+
+### Reserved Instances vs Savings Plans
+
+| Feature | Reserved Instances | Savings Plans |
+|---------|-------------------|---------------|
+| Flexibility | Instance type specific | Any instance type |
+| Discount | Up to 72% | Up to 72% |
+| Commitment | 1 or 3 years | 1 or 3 years |
+| Best For | Predictable workloads | Variable workloads |
+
+### Cost Allocation Tags
+- Implement consistent tagging strategy
+- Required tags: Environment, Project, Owner, CostCenter
+- Use AWS Organizations tag policies
+- Enable cost allocation tags in Billing
+
+### Spot Instances Best Practices
+- Use for fault-tolerant workloads
+- Implement Spot Fleet for diversification
+- Set up Spot Instance interruption handling
+- Combine with On-Demand for baseline capacity
+
+## Security Hardening Recommendations
+
+### IAM Best Practices
+1. **Root Account Security**
+   - Enable MFA on root account
+   - Don't use root for daily tasks
+   - Create IAM users for administrators
+   - Store root credentials securely
+
+2. **IAM Users and Roles**
+   - Use roles for applications, not access keys
+   - Implement least privilege
+   - Use IAM Access Analyzer
+   - Rotate credentials regularly
+   - Remove unused credentials
+
+3. **IAM Policies**
+   - Use AWS managed policies when possible
+   - Scope custom policies narrowly
+   - Use conditions for additional security
+   - Avoid wildcards in resource ARNs
+
+### Network Security
+1. **VPC Configuration**
+   - Use private subnets for backend resources
+   - Implement NAT Gateway for outbound internet
+   - Use VPC endpoints for AWS services
+   - Enable VPC Flow Logs
+
+2. **Security Groups**
+   - Default deny all inbound
+   - Allow only required ports
+   - Use security group references instead of IPs
+   - Document all rules
+
+3. **Network ACLs**
+   - Use as additional layer of defense
+   - Implement deny rules for known bad IPs
+   - Keep rules simple and documented
+
+### Data Protection
+1. **Encryption at Rest**
+   - Enable default encryption for S3
+   - Use encrypted EBS volumes
+   - Enable RDS encryption
+   - Use AWS KMS for key management
+
+2. **Encryption in Transit**
+   - Use TLS 1.2 or higher
+   - Enable HTTPS for all endpoints
+   - Use ACM for certificate management
+   - Implement certificate pinning for mobile apps
+
+### Logging and Monitoring
+- Enable CloudTrail in all regions
+- Enable GuardDuty for threat detection
+- Use Security Hub for centralized view
+- Set up CloudWatch alarms for security events
+- Implement log retention policies
+
+## Performance Tuning Tips
+
+### EC2 Optimization
+1. **Instance Selection**
+   - Match instance type to workload
+   - Consider burstable instances for variable loads
+   - Use latest generation instances
+   - Enable enhanced networking
+
+2. **EBS Optimization**
+   - Use gp3 for general purpose
+   - Use io2 for high IOPS requirements
+   - Enable EBS-optimized instances
+   - Monitor burst balance for gp2
+
+### Database Performance
+1. **RDS Optimization**
+   - Right-size instance class
+   - Use read replicas for read-heavy workloads
+   - Enable Performance Insights
+   - Optimize queries with slow query log
+
+2. **DynamoDB Optimization**
+   - Design efficient partition keys
+   - Use sparse indexes
+   - Enable DAX for caching
+   - Use on-demand for unpredictable workloads
+
+### Application Performance
+1. **Caching Strategies**
+   - Use CloudFront for static content
+   - Implement ElastiCache for session data
+   - Cache database queries
+   - Use application-level caching
+
+2. **Lambda Optimization**
+   - Right-size memory allocation
+   - Use Provisioned Concurrency for latency-sensitive
+   - Minimize cold starts with keep-warm
+   - Optimize package size
+
+### Monitoring and Metrics
+- Set up CloudWatch dashboards
+- Create custom metrics for business KPIs
+- Use X-Ray for distributed tracing
+- Implement synthetic monitoring
+- Set up anomaly detection
+
+## Enterprise Support Recommendations
+
+### Proactive Services
+- Schedule Well-Architected Reviews
+- Use Trusted Advisor recommendations
+- Engage TAM for architecture reviews
+- Participate in AWS events and training
+
+### Support Case Best Practices
+- Provide detailed information upfront
+- Include error messages and logs
+- Specify business impact
+- Follow up on recommendations
+- Close cases when resolved
