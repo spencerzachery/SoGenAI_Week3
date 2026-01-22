@@ -228,26 +228,20 @@ Range: 0.0 (opposite) to 1.0 (identical)
 ## Slide 16: RAG Pipeline Architecture
 **Production-grade flow**
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    INGESTION PIPELINE                            │
-├─────────────────────────────────────────────────────────────────┤
-│  S3 Bucket        Chunking         Embedding       Vector Store  │
-│  ┌────────┐      ┌────────┐       ┌────────┐      ┌────────┐    │
-│  │ Docs   │  →   │ Split  │   →   │ Titan  │  →   │ AOSS   │    │
-│  │ (PDF,  │      │ 300-   │       │ V2     │      │ Index  │    │
-│  │ TXT)   │      │ 500tok │       │        │      │        │    │
-│  └────────┘      └────────┘       └────────┘      └────────┘    │
-├─────────────────────────────────────────────────────────────────┤
-│                    QUERY PIPELINE                                │
-├─────────────────────────────────────────────────────────────────┤
-│  User Query      Embed Query      Retrieve         Generate      │
-│  ┌────────┐      ┌────────┐      ┌────────┐      ┌────────┐     │
-│  │ "How   │  →   │ Vector │  →   │ Top-K  │  →   │ Claude │     │
-│  │ do I.."│      │        │      │ Chunks │      │ + Ctx  │     │
-│  └────────┘      └────────┘      └────────┘      └────────┘     │
-└─────────────────────────────────────────────────────────────────┘
-```
+![RAG Pipeline Architecture](diagrams/rag-pipeline-architecture.png)
+
+**Key Components:**
+| Component | Service | Purpose |
+|-----------|---------|---------|
+| Frontend | CloudFront + S3 | Secure static hosting |
+| API | API Gateway + Lambda | Query routing |
+| Knowledge Base | Bedrock KB | Retrieval |
+| Vector Store | S3 Vectors | Embeddings storage |
+| Generation | Claude 4.5 Sonnet | Response generation |
+
+**This is a reusable pattern** — fork the repo, swap the docs, deploy for your team.
+
+See: [docs/RAG_REFERENCE_ARCHITECTURE.md](docs/RAG_REFERENCE_ARCHITECTURE.md)
 
 ## Slide 17: Bedrock Knowledge Bases - Under the Hood
 **What the managed service handles**
@@ -278,6 +272,8 @@ Range: 0.0 (opposite) to 1.0 (identical)
 
 **Bedrock defaults:**
 - `maxTokens`: 300
+
+See: [How content chunking works](https://docs.aws.amazon.com/bedrock/latest/userguide/kb-chunking.html)
 - `overlapPercentage`: 10%
 
 **Tuning tip:** Start with defaults, adjust based on retrieval quality
@@ -320,7 +316,7 @@ retrievalConfiguration = {
 
 | Model | Context Window | Effective for RAG |
 |-------|----------------|-------------------|
-| Claude 3.5 Sonnet | 200K tokens | ~150K usable |
+| Claude 4.5 Sonnet | 200K tokens | ~150K usable |
 | Claude 3 Haiku | 200K tokens | ~150K usable |
 
 **Context budget:**
@@ -342,7 +338,7 @@ You'll build a RAG system for Enterprise Support case resolution:
 | Knowledge Base | S3 + Bedrock KB | Store support docs |
 | Vector Store | OpenSearch Serverless | Semantic search |
 | Embeddings | Titan V2 | Document/query encoding |
-| Generation | Claude 3.5 Sonnet | Response generation |
+| Generation | Claude 4.5 Sonnet | Response generation |
 | Interface | RAG Playground (Web UI) | Testing & comparison |
 
 **Time:** 60 minutes

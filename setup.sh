@@ -68,7 +68,7 @@ check_bedrock_access() {
     
     # Check Claude access
     CLAUDE_ACCESS=$(aws bedrock list-foundation-models --region $REGION \
-        --query "modelSummaries[?modelId=='anthropic.claude-3-5-sonnet-20240620-v1:0'].modelId" \
+        --query "modelSummaries[?modelId=='anthropic.claude-sonnet-4-5-20250929-v1:0'].modelId" \
         --output text 2>/dev/null || echo "")
     
     if [ -z "$CLAUDE_ACCESS" ]; then

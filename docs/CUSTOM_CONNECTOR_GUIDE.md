@@ -6,7 +6,9 @@ This guide covers how to build custom connectors to ingest data from various sou
 
 ---
 
-## Overview
+## Architecture Overview
+
+![Data Ingestion Pipeline](../diagrams/data-ingestion-pipeline.png)
 
 While Bedrock Knowledge Bases support native connectors for S3, Web Crawler, Confluence, Salesforce, and SharePoint, you'll often need to ingest data from custom sources:
 
@@ -18,21 +20,7 @@ While Bedrock Knowledge Bases support native connectors for S3, Web Crawler, Con
 
 The pattern is always the same: **Extract → Transform → Load to S3 → Sync KB**
 
----
-
-## Architecture Pattern
-
-```
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│  Data Source    │     │  Lambda/Script  │     │  S3 Bucket      │
-│  (API, DB, etc) │ ──→ │  (ETL Logic)    │ ──→ │  (KB Source)    │
-└─────────────────┘     └─────────────────┘     └─────────────────┘
-                                                        │
-                                                        ↓
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│  RAG Queries    │ ←── │  Bedrock KB     │ ←── │  Sync Job       │
-└─────────────────┘     └─────────────────┘     └─────────────────┘
-```
+See [Amazon Bedrock Knowledge Base Data Sources](https://docs.aws.amazon.com/bedrock/latest/userguide/knowledge-base-ds.html) for native connector options.
 
 ---
 

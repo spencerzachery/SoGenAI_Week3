@@ -327,7 +327,7 @@ echo $KB_ID
 
 ### Issue: "Access Denied" on Bedrock
 1. Go to Bedrock console → Model access
-2. Enable Claude 3.5 Sonnet and Titan Embeddings
+2. Enable Claude 4.5 Sonnet and Titan Embeddings
 3. Wait for "Access granted" status
 
 ### Issue: "Empty retrieval results"

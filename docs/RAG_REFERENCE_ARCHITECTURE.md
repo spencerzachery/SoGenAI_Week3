@@ -6,67 +6,38 @@ This architecture is designed to be reusable. Fork this repo, swap out the knowl
 
 ---
 
+## Architecture Diagram
+
+![RAG Pipeline Architecture](../diagrams/rag-pipeline-architecture.png)
+
+---
+
 ## Architecture Overview
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              YOUR APPLICATION                                │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                      │
-                                      ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                            API GATEWAY (HTTP)                                │
-│                         • CORS enabled                                       │
-│                         • Rate limiting available                            │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                      │
-                                      ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                            LAMBDA FUNCTION                                   │
-│                         • Query routing logic                                │
-│                         • RAG vs Direct mode                                 │
-│                         • Prompt template injection                          │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                      │
-                    ┌─────────────────┴─────────────────┐
-                    ▼                                   ▼
-┌───────────────────────────────┐     ┌───────────────────────────────────────┐
-│     BEDROCK KNOWLEDGE BASE    │     │         BEDROCK RUNTIME                │
-│  ┌─────────────────────────┐  │     │                                       │
-│  │   Titan Embeddings V2   │  │     │    Claude 3.5 Sonnet (Generation)     │
-│  │   (Semantic Search)     │  │     │                                       │
-│  └─────────────────────────┘  │     └───────────────────────────────────────┘
-│  ┌─────────────────────────┐  │
-│  │   S3 Vector Store       │  │
-│  │   (Simple, Fast)        │  │
-│  └─────────────────────────┘  │
-│  ┌─────────────────────────┐  │
-│  │   Data Source (S3)      │  │
-│  └─────────────────────────┘  │
-└───────────────────────────────┘
-                    │
-                    ▼
-┌───────────────────────────────┐
-│         S3 BUCKET             │
-│   • Your documents            │
-│   • Metadata sidecars         │
-│   • Versioned content         │
-└───────────────────────────────┘
-```
+The RAG pipeline consists of these key components:
+
+| Component | AWS Service | Purpose |
+|-----------|-------------|---------|
+| Frontend | CloudFront + S3 | Secure static hosting with edge caching |
+| API Layer | API Gateway + Lambda | Serverless query handling |
+| Knowledge Base | Bedrock Knowledge Base | Document storage, chunking, retrieval |
+| Vector Store | S3 Vectors | Cost-effective vector storage |
+| Embeddings | Titan Embeddings V2 | Semantic search |
+| Generation | Claude 4.5 Sonnet | Response generation |
 
 ---
 
 ## What Makes This Production-Ready
 
 ### 1. Security
-- **No public S3 buckets** — CloudFront with Origin Access Control
+- **No public S3 buckets** — [CloudFront with Origin Access Control](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-restricting-access-to-s3.html)
 - **IAM least privilege** — Each component has minimal required permissions
 - **HTTPS everywhere** — CloudFront enforces TLS
 - **Private knowledge base** — S3 vector store, no external dependencies
 
 ### 2. Scalability
-- **Serverless** — Lambda + API Gateway scale automatically
-- **S3 vector store** — No cluster management, scales with data
+- **Serverless** — [Lambda + API Gateway](https://docs.aws.amazon.com/lambda/latest/dg/services-apigateway.html) scale automatically
+- **S3 vector store** — No cluster management, [scales with data](https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-vectors-bedrock-kb.html)
 - **CloudFront caching** — Reduces origin load for static assets
 
 ### 3. Cost Efficiency
@@ -160,7 +131,7 @@ documents/
 ```
 
 ### Change Chunking Strategy
-Edit the data source configuration in the CloudFormation template:
+Edit the data source configuration in the CloudFormation template. See [How content chunking works](https://docs.aws.amazon.com/bedrock/latest/userguide/kb-chunking.html) for details.
 
 ```yaml
 VectorIngestionConfiguration:
@@ -200,9 +171,9 @@ Change the model in the Lambda environment or pass it per-request:
 ```yaml
 Environment:
   Variables:
-    DEFAULT_MODEL_ID: 'anthropic.claude-3-haiku-20240307-v1:0'  # Faster, cheaper
-    # Or: 'amazon.titan-text-premier-v1:0'
-    # Or: 'meta.llama3-70b-instruct-v1:0'
+    DEFAULT_MODEL_ID: 'anthropic.claude-sonnet-4-5-20250929-v1:0'  # Default (best quality)
+    # Or: 'anthropic.claude-3-5-sonnet-20241022-v2:0'  # Previous gen, still excellent
+    # Or: 'anthropic.claude-3-haiku-20240307-v1:0'  # Faster, cheaper
 ```
 
 ### Add Streaming Responses
@@ -283,11 +254,13 @@ Or automate with EventBridge + Lambda (see `docs/CUSTOM_CONNECTOR_GUIDE.md`).
 - **Faster to provision**: Minutes vs 15-20 min for OpenSearch
 - **Cheaper**: No minimum compute costs
 - **Good enough**: For most enterprise use cases with < 1M documents
+- See: [Using S3 Vectors with Amazon Bedrock Knowledge Bases](https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-vectors-bedrock-kb.html)
 
 ### Why CloudFront + OAC?
 - **Security**: No public S3 buckets
 - **Performance**: Edge caching for static assets
 - **Best practice**: AWS recommended pattern
+- See: [Restrict access to an Amazon S3 origin](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-restricting-access-to-s3.html)
 
 ### Why Titan Embeddings?
 - **Cost**: ~10x cheaper than alternatives
@@ -299,6 +272,7 @@ Or automate with EventBridge + Lambda (see `docs/CUSTOM_CONNECTOR_GUIDE.md`).
 - **Cost**: Pay only for execution time
 - **Scale**: Automatic scaling to thousands of concurrent requests
 - **Cold starts**: Acceptable for most RAG use cases (< 1s)
+- See: [Invoking Lambda with API Gateway](https://docs.aws.amazon.com/lambda/latest/dg/services-apigateway.html)
 
 ---
 
@@ -314,10 +288,16 @@ Or automate with EventBridge + Lambda (see `docs/CUSTOM_CONNECTOR_GUIDE.md`).
 
 ---
 
-## Resources
+## AWS Documentation References
 
-- [Bedrock Knowledge Bases Documentation](https://docs.aws.amazon.com/bedrock/latest/userguide/knowledge-base.html)
+### Core Services
+- [Amazon Bedrock Knowledge Bases](https://docs.aws.amazon.com/bedrock/latest/userguide/knowledge-base.html)
+- [S3 Vectors with Bedrock](https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-vectors-bedrock-kb.html)
+- [Knowledge Base Chunking Strategies](https://docs.aws.amazon.com/bedrock/latest/userguide/kb-chunking.html)
+- [CloudFront Origin Access Control](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-restricting-access-to-s3.html)
+- [Lambda with API Gateway](https://docs.aws.amazon.com/lambda/latest/dg/services-apigateway.html)
+
+### Additional Resources
 - [Prompt Engineering Guide](https://docs.anthropic.com/claude/docs/prompt-engineering)
-- [RAG Best Practices](https://docs.aws.amazon.com/bedrock/latest/userguide/kb-test-config.html)
 - [Custom Connectors Guide](./CUSTOM_CONNECTOR_GUIDE.md) — Build pipelines for your data sources
 - [Data Preparation Guide](./DATA_PREPARATION_GUIDE.md) — Optimize content for retrieval

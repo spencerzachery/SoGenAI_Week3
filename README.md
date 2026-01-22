@@ -31,7 +31,7 @@ A hands-on learning experience that teaches prompt engineering strategies, embed
 1. **AWS Account** with admin access
 2. **Enable Bedrock Models:**
    - Go to AWS Console → Amazon Bedrock → Model access
-   - Enable: **Anthropic Claude 3.5 Sonnet**
+   - Enable: **Anthropic Claude 4.5 Sonnet**
    - Enable: **Amazon Titan Embeddings V2**
    - Wait for "Access granted" status
 

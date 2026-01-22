@@ -75,7 +75,7 @@ chmod +x scripts/*.py
 2. Click "Model access" in left menu
 3. Click "Manage model access"
 4. Enable these models:
-   - ✅ **Anthropic Claude 3.5 Sonnet** (for generation)
+   - ✅ **Anthropic Claude 4.5 Sonnet** (for generation)
    - ✅ **Amazon Titan Text Embeddings V2** (for embeddings)
 5. Click "Save changes"
 6. Wait for "Access granted" status
@@ -201,20 +201,14 @@ cd ../cloudformation
 
 ## 📊 Architecture Overview
 
-```
-┌─────────────┐     ┌──────────────────┐     ┌─────────────────┐
-│ S3 Bucket   │ →   │ Bedrock KB       │ →   │ Vector Store    │
-│ (Support    │     │ (Chunking +      │     │ (OpenSearch     │
-│  Docs)      │     │  Embedding)      │     │  Serverless)    │
-└─────────────┘     └──────────────────┘     └─────────────────┘
-                                                     │
-                                                     ↓
-┌─────────────┐     ┌──────────────────┐     ┌─────────────────┐
-│ User Query  │ →   │ Retrieve Context │ →   │ Augmented       │
-│ (Support    │     │ (Semantic        │     │ Generation      │
-│  Question)  │     │  Search)         │     │ (Claude)        │
-└─────────────┘     └──────────────────┘     └─────────────────┘
-```
+![RAG Pipeline Architecture](diagrams/rag-pipeline-architecture.png)
+
+| Component | AWS Service | Purpose |
+|-----------|-------------|---------|
+| Frontend | CloudFront + S3 | Secure static hosting |
+| API | API Gateway + Lambda | Query handling |
+| Knowledge Base | Bedrock KB + S3 Vectors | Document retrieval |
+| Generation | Claude 4.5 Sonnet | Response generation |
 
 ## 🔍 Troubleshooting
 
@@ -225,7 +219,7 @@ cd ../cloudformation
 
 ### Issue: "Model access denied"
 - Go to Bedrock console → Model access
-- Enable Claude 3.5 Sonnet and Titan Embeddings
+- Enable Claude 4.5 Sonnet and Titan Embeddings
 - Wait for "Access granted" status
 
 ### Issue: "Empty retrieval results"
@@ -249,7 +243,7 @@ You've successfully built a RAG pipeline using:
 - Amazon Bedrock Knowledge Bases
 - Amazon Titan Embeddings
 - S3 Vector Store
-- Claude 3.5 Sonnet
+- Claude 4.5 Sonnet
 - AWS CloudFormation
 
 **Great job!** 🚀

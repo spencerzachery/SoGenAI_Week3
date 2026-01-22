@@ -16,7 +16,7 @@ bedrock_agent = boto3.client('bedrock-agent-runtime')
 bedrock = boto3.client('bedrock-runtime')
 
 # Configuration
-DEFAULT_MODEL_ID = 'anthropic.claude-3-5-sonnet-20240620-v1:0'
+DEFAULT_MODEL_ID = 'anthropic.claude-sonnet-4-5-20250929-v1:0'
 REGION = os.environ.get('AWS_REGION', 'us-east-1')
 
 
