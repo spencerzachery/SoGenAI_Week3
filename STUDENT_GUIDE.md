@@ -256,10 +256,17 @@ You've successfully built a RAG pipeline using:
 
 ---
 
-## 📚 Take-Home Exercises (Optional)
+## 📚 Take-Home Resources
 
-Want to go deeper after the workshop? Check out these advanced guides:
+### Reusable Architecture (Start Here!)
+**This is yours to keep and reuse:**
+- **Guide:** `docs/RAG_REFERENCE_ARCHITECTURE.md`
+  - Fork this repo, swap the docs, deploy for your team in 15 minutes
+  - Complete architecture with security, scalability, and cost considerations
+  - Step-by-step customization (change prompts, add auth, use different models)
+  - Cost estimation (~$65-115/month for typical internal tool)
 
+### Go Deeper (Optional)
 - **Data Preparation:** `docs/DATA_PREPARATION_GUIDE.md`
   - Chunking strategies and their tradeoffs
   - Metadata filtering for better retrieval

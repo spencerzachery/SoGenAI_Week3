@@ -55,6 +55,8 @@
 - Walk through the diagram step by step
 - Emphasize the "retrieval" before "generation"
 - **Key message:** "Ground the AI in your data"
+- **Key message:** "This is a reusable pattern — fork it, swap the docs, deploy for your team"
+- Point to `docs/RAG_REFERENCE_ARCHITECTURE.md` as a take-home reference
 
 ### Slides 21-23: Exercise Overview
 - Show the architecture they'll build
@@ -222,6 +224,17 @@ For students who want to go deeper after the workshop:
   - Best practices for incremental sync and error handling
 - This is a 300-level exercise, not covered in the 2-hour session
 - Recommend for students who want to apply RAG to their own data sources
+
+### Reusable Architecture Reference
+**This is the most important take-home for students:**
+- **Guide:** `docs/RAG_REFERENCE_ARCHITECTURE.md` - Production-ready pattern they can fork:
+  - Complete architecture diagram with component explanations
+  - Step-by-step customization guide (swap docs, change prompts, add auth)
+  - Cost estimation (~$65-115/month for typical internal tool)
+  - When to use this vs alternatives
+  - Architecture decision records (why S3 vector store, why CloudFront, etc.)
+- **Key message to students:** "Fork this repo, replace the docs, deploy for your team in 15 minutes"
+- Emphasize this during wrap-up — they're not just learning concepts, they're getting a reusable asset
 
 ## Post-Session
 
