@@ -79,7 +79,7 @@ You should see:
 
 5. Configure embeddings:
    - Embeddings model: Amazon Titan Embeddings V2
-   - Vector database: Quick create (OpenSearch Serverless)
+   - Vector database: S3 Vectors (auto-created)
 
 6. Review and create
 
@@ -353,7 +353,7 @@ This will delete:
 - CloudFormation stack
 - S3 bucket and contents
 - Bedrock Knowledge Base
-- OpenSearch Serverless collection
+- S3 Vector Store
 - IAM roles
 
 ## Additional Resources

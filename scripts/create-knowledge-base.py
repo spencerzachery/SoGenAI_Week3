@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """
-Create Bedrock Knowledge Base
-Automates the creation of a Bedrock Knowledge Base with S3 data source.
+Knowledge Base Sync Utility
+Triggers a re-sync of the Bedrock Knowledge Base data source.
+
+Note: The Knowledge Base is now created automatically by CloudFormation.
+This script is useful for manually triggering re-ingestion after adding new documents.
 """
 
 import boto3
-import json
 import os
 import sys
 import time
@@ -13,144 +15,28 @@ import time
 # Configuration
 PROJECT_NAME = os.environ.get('PROJECT_NAME', 'rag-pipeline')
 REGION = os.environ.get('AWS_REGION', 'us-east-1')
-EMBEDDING_MODEL = 'amazon.titan-embed-text-v2:0'
 
-def get_account_id():
-    """Get AWS account ID."""
-    sts = boto3.client('sts')
-    return sts.get_caller_identity()['Account']
-
-def get_role_arn(account_id):
-    """Get the Bedrock KB role ARN from CloudFormation."""
+def get_kb_info():
+    """Get Knowledge Base ID and Data Source ID from CloudFormation outputs."""
     cf = boto3.client('cloudformation', region_name=REGION)
+    
     try:
         response = cf.describe_stacks(StackName=f'{PROJECT_NAME}-stack')
         outputs = response['Stacks'][0]['Outputs']
+        
+        kb_id = None
+        ds_id = None
+        
         for output in outputs:
-            if output['OutputKey'] == 'BedrockKBRoleArn':
-                return output['OutputValue']
+            if output['OutputKey'] == 'KnowledgeBaseId':
+                kb_id = output['OutputValue']
+            elif output['OutputKey'] == 'DataSourceId':
+                ds_id = output['OutputValue']
+        
+        return kb_id, ds_id
     except Exception as e:
-        print(f"Error getting role ARN: {e}")
-    return f"arn:aws:iam::{account_id}:role/{PROJECT_NAME}-bedrock-kb-role"
-
-def get_opensearch_arn(account_id):
-    """Get OpenSearch collection ARN from CloudFormation."""
-    cf = boto3.client('cloudformation', region_name=REGION)
-    try:
-        response = cf.describe_stacks(StackName=f'{PROJECT_NAME}-stack')
-        outputs = response['Stacks'][0]['Outputs']
-        for output in outputs:
-            if output['OutputKey'] == 'OpenSearchCollectionArn':
-                return output['OutputValue']
-    except Exception as e:
-        print(f"Error getting OpenSearch ARN: {e}")
-    return None
-
-def create_knowledge_base():
-    """Create Bedrock Knowledge Base."""
-    account_id = get_account_id()
-    role_arn = get_role_arn(account_id)
-    collection_arn = get_opensearch_arn(account_id)
-    
-    if not collection_arn:
-        print("❌ OpenSearch collection not found. Deploy CloudFormation first.")
-        sys.exit(1)
-    
-    bedrock_agent = boto3.client('bedrock-agent', region_name=REGION)
-    
-    # Check if KB already exists
-    existing = bedrock_agent.list_knowledge_bases()
-    for kb in existing.get('knowledgeBaseSummaries', []):
-        if kb['name'] == f'{PROJECT_NAME}-kb':
-            print(f"Knowledge Base already exists: {kb['knowledgeBaseId']}")
-            return kb['knowledgeBaseId']
-    
-    print("Creating Knowledge Base...")
-    
-    # Create Knowledge Base
-    response = bedrock_agent.create_knowledge_base(
-        name=f'{PROJECT_NAME}-kb',
-        description='Enterprise Support case resolution knowledge base',
-        roleArn=role_arn,
-        knowledgeBaseConfiguration={
-            'type': 'VECTOR',
-            'vectorKnowledgeBaseConfiguration': {
-                'embeddingModelArn': f'arn:aws:bedrock:{REGION}::foundation-model/{EMBEDDING_MODEL}'
-            }
-        },
-        storageConfiguration={
-            'type': 'OPENSEARCH_SERVERLESS',
-            'opensearchServerlessConfiguration': {
-                'collectionArn': collection_arn,
-                'vectorIndexName': 'bedrock-knowledge-base-index',
-                'fieldMapping': {
-                    'vectorField': 'vector',
-                    'textField': 'text',
-                    'metadataField': 'metadata'
-                }
-            }
-        }
-    )
-    
-    kb_id = response['knowledgeBase']['knowledgeBaseId']
-    print(f"✓ Knowledge Base created: {kb_id}")
-    
-    # Wait for KB to be ready
-    print("Waiting for Knowledge Base to be ready...")
-    while True:
-        status = bedrock_agent.get_knowledge_base(knowledgeBaseId=kb_id)
-        state = status['knowledgeBase']['status']
-        if state == 'ACTIVE':
-            break
-        elif state == 'FAILED':
-            print(f"❌ Knowledge Base creation failed")
-            sys.exit(1)
-        time.sleep(5)
-    
-    return kb_id
-
-def create_data_source(kb_id):
-    """Create S3 data source for the Knowledge Base."""
-    account_id = get_account_id()
-    bucket_name = f'{PROJECT_NAME}-kb-{account_id}-{REGION}'
-    
-    bedrock_agent = boto3.client('bedrock-agent', region_name=REGION)
-    
-    # Check if data source exists
-    existing = bedrock_agent.list_data_sources(knowledgeBaseId=kb_id)
-    for ds in existing.get('dataSourceSummaries', []):
-        if ds['name'] == 'support-cases':
-            print(f"Data source already exists: {ds['dataSourceId']}")
-            return ds['dataSourceId']
-    
-    print("Creating data source...")
-    
-    response = bedrock_agent.create_data_source(
-        knowledgeBaseId=kb_id,
-        name='support-cases',
-        description='Enterprise Support case documentation',
-        dataSourceConfiguration={
-            'type': 'S3',
-            's3Configuration': {
-                'bucketArn': f'arn:aws:s3:::{bucket_name}',
-                'inclusionPrefixes': ['support-cases/']
-            }
-        },
-        vectorIngestionConfiguration={
-            'chunkingConfiguration': {
-                'chunkingStrategy': 'FIXED_SIZE',
-                'fixedSizeChunkingConfiguration': {
-                    'maxTokens': 300,
-                    'overlapPercentage': 20
-                }
-            }
-        }
-    )
-    
-    ds_id = response['dataSource']['dataSourceId']
-    print(f"✓ Data source created: {ds_id}")
-    
-    return ds_id
+        print(f"Error getting stack outputs: {e}")
+        return None, None
 
 def sync_data_source(kb_id, ds_id):
     """Start ingestion job to sync data source."""
@@ -194,29 +80,32 @@ def sync_data_source(kb_id, ds_id):
 
 def main():
     print("=" * 50)
-    print("  Bedrock Knowledge Base Setup")
+    print("  Knowledge Base Sync Utility")
     print("=" * 50)
     print()
     
-    # Create Knowledge Base
-    kb_id = create_knowledge_base()
+    # Get KB info from CloudFormation
+    kb_id, ds_id = get_kb_info()
     
-    # Create Data Source
-    ds_id = create_data_source(kb_id)
+    if not kb_id or not ds_id:
+        print("❌ Knowledge Base not found. Deploy CloudFormation stack first:")
+        print("   ./cloudformation/deploy.sh")
+        sys.exit(1)
+    
+    print(f"Knowledge Base ID: {kb_id}")
+    print(f"Data Source ID: {ds_id}")
+    print()
     
     # Sync Data Source
     sync_data_source(kb_id, ds_id)
     
     print()
     print("=" * 50)
-    print("  Setup Complete!")
+    print("  Sync Complete!")
     print("=" * 50)
     print()
-    print(f"Knowledge Base ID: {kb_id}")
-    print()
     print("To query the knowledge base:")
-    print(f"  export KB_ID={kb_id}")
-    print(f"  python3 query-knowledge-base.py 'Your question here'")
+    print(f"  python3 scripts/query-knowledge-base.py 'Your question here'")
     print()
 
 if __name__ == '__main__':

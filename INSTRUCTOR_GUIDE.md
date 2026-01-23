@@ -144,7 +144,7 @@ This is fixed in the latest scripts. If students see this:
 
 ### "Responses are slow"
 1. First query may have cold start
-2. OpenSearch Serverless may be scaling
+2. S3 Vector Store may be warming up
 3. Normal response time: 3-8 seconds
 
 ### "Access Denied errors"

@@ -40,7 +40,7 @@ All prerequisites met!
 **Verify:**
 - [ ] CloudFormation stack creates successfully
 - [ ] S3 bucket is created
-- [ ] OpenSearch Serverless collection is created
+- [ ] S3 Vector Store is created
 - [ ] IAM roles are created
 - [ ] Lambda function is deployed
 
@@ -287,4 +287,4 @@ aws s3 ls s3://rag-pipeline-kb-${ACCOUNT_ID}-${REGION}
 ### "Timeout errors"
 1. Increase Lambda timeout
 2. Check network connectivity
-3. Verify OpenSearch collection is active
+3. Verify S3 Vector Store is active

@@ -190,7 +190,7 @@ Range: 0.0 (opposite) to 1.0 (identical)
 | Pinecone | Automatic | <20ms | Billions |
 | Redis Vector | Manual | <10ms | Millions |
 
-**Bedrock KB default:** OpenSearch Serverless (managed, scalable)
+**This workshop uses:** S3 Vectors (simple, cost-effective, fast to provision)
 
 **Trade-offs:** Latency vs. cost vs. operational overhead
 
@@ -336,7 +336,7 @@ You'll build a RAG system for Enterprise Support case resolution:
 | Component | Technology | Purpose |
 |-----------|------------|---------|
 | Knowledge Base | S3 + Bedrock KB | Store support docs |
-| Vector Store | OpenSearch Serverless | Semantic search |
+| Vector Store | S3 Vectors | Semantic search |
 | Embeddings | Titan V2 | Document/query encoding |
 | Generation | Claude 4.5 Sonnet | Response generation |
 | Interface | RAG Playground (Web UI) | Testing & comparison |
@@ -358,8 +358,8 @@ You'll build a RAG system for Enterprise Support case resolution:
 │         │                   │                   │                │
 │         ↓                   ↓                   ↓                │
 │  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐       │
-│  │ Bedrock KB   │ ←→ │ OpenSearch   │    │ S3 Frontend  │       │
-│  │ (Manual)     │    │ Serverless   │    │ (Web UI)     │       │
+│  │ Bedrock KB   │ ←→ │ S3 Vectors   │    │ S3 Frontend  │       │
+│  │ (Auto)       │    │              │    │ (Web UI)     │       │
 │  └──────────────┘    └──────────────┘    └──────────────┘       │
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘

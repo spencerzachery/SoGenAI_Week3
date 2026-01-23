@@ -11,18 +11,16 @@ A hands-on learning experience that teaches prompt engineering strategies, embed
 - Understanding embeddings and vector similarity search
 - Building RAG pipelines with Bedrock Knowledge Bases
 - Enterprise Support case resolution scenarios
-- Classroom exercises (40+ students tested)
 
 ## ✨ Key Features
 
 - 🤖 **Amazon Bedrock Knowledge Bases** - Managed RAG with automatic chunking and embedding
 - 📚 **Enterprise Support Content** - Realistic case scenarios (service limits, outages, best practices)
-- 🔍 **Semantic Search** - Vector-based retrieval with OpenSearch Serverless
+- 🔍 **Semantic Search** - Vector-based retrieval with S3 Vectors
 - 💡 **Prompt Engineering Examples** - Zero-shot, few-shot, CoT, role-based prompts
 - 🌐 **RAG Playground Web UI** - Interactive interface for testing prompts and comparing responses
 - 📊 **RAG vs Non-RAG Comparison** - Side-by-side view of how context improves responses
 - 🛡️ **Production-ready** - CloudFormation deployment, error handling
-- 👥 **Multi-account** - Ready for 40+ students (no hardcoded values)
 
 ## 🚀 Quick Deploy (15-20 minutes)
 
@@ -41,7 +39,13 @@ A hands-on learning experience that teaches prompt engineering strategies, embed
 
 1. Log into AWS Console
 2. Click the **CloudShell** icon (terminal) in the top navigation
-3. Upload and extract the project:
+3. Pull the Code from Github or upload and extract the project:
+
+Pull from github
+```bash
+git clone https://github.com/spencerzachery/SoGenAI_Week3/blob/main/README.md
+```
+or upload the zip file via CloudShell Actions menu
 
 ```bash
 # After uploading SoGenAI_Week3.zip via Actions → Upload file
@@ -68,7 +72,7 @@ This single script handles everything:
 - ✅ CloudFormation infrastructure deployment
 - ✅ S3 bucket creation and knowledge base content upload
 - ✅ Bedrock Knowledge Base creation and sync
-- ✅ OpenSearch Serverless collection setup
+- ✅ S3 Vector Store setup
 - ✅ Query interface deployment
 - ✅ Deployment validation
 
@@ -98,7 +102,7 @@ cd ../scripts
 - S3 Bucket for knowledge base content
 - S3 Bucket for RAG Playground web UI (static website hosting)
 - Bedrock Knowledge Base with Titan Embeddings
-- OpenSearch Serverless collection for vectors
+- S3 Vector Store for embeddings
 - Lambda function for query API
 - API Gateway HTTP endpoint
 - IAM roles and policies
