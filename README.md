@@ -138,19 +138,16 @@ Access the UI at the Frontend URL provided after deployment.
 
 - **[STUDENT_GUIDE.md](STUDENT_GUIDE.md)** - Quick start for students
 - **[exercise-guide.md](exercise-guide.md)** - Detailed 60-minute lab
-- **[presentation-slides.md](presentation-slides.md)** - 25 slides for instructors
 - **[prompts/](prompts/)** - Prompt engineering examples
 - **[docs/DATA_PREPARATION_GUIDE.md](docs/DATA_PREPARATION_GUIDE.md)** - Enterprise data preparation for RAG (wiki, support cases, connectors)
 - **[scripts/prepare-data-for-rag.py](scripts/prepare-data-for-rag.py)** - Data preparation utility script
 
-## 💰 Cost: ~$1-2/session or FREE with AWS Academy
+## 💰 Cost: ~$1-2/session
 
 ## 🧹 Cleanup
 
 ```bash
 cd cloudformation && ./cleanup.sh
 ```
-
-## 🎉 Ready for Production and 40+ Students!
 
 **Your RAG Pipeline is complete, tested, and ready to use!** 🚀
