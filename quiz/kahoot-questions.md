@@ -1,6 +1,6 @@
 # Kahoot Quiz: Prompt Engineering & Context Management
 
-20 multiple choice questions for the Week 3 assessment.
+15 multiple choice questions for the Week 3 assessment.
 Format: Question, 4 options (A-D), correct answer marked with ✓
 
 ---
@@ -58,7 +58,7 @@ Format: Question, 4 options (A-D), correct answer marked with ✓
 
 ---
 
-## Embeddings & Vector Search (5 Questions)
+## Embeddings & Vector Search (4 Questions)
 
 ### Question 8
 **What are embeddings in the context of AI?**
@@ -75,20 +75,13 @@ Format: Question, 4 options (A-D), correct answer marked with ✓
 - D) It requires less storage
 
 ### Question 10
-**What does cosine similarity measure?**
-- A) The length of two vectors
-- B) The angle between two vectors ✓
-- C) The sum of two vectors
-- D) The difference between two vectors
-
-### Question 11
 **Which AWS service provides embedding models?**
 - A) Amazon S3
 - B) Amazon Bedrock ✓
 - C) Amazon RDS
 - D) Amazon CloudFront
 
-### Question 12
+### Question 11
 **What is the purpose of a vector database?**
 - A) Store relational data
 - B) Store and search embeddings efficiently ✓
@@ -97,55 +90,40 @@ Format: Question, 4 options (A-D), correct answer marked with ✓
 
 ---
 
-## RAG Architecture (5 Questions)
+## RAG Architecture (2 Questions)
 
-### Question 13
+### Question 12
 **What does RAG stand for?**
 - A) Rapid Application Gateway
 - B) Retrieval-Augmented Generation ✓
 - C) Real-time Analytics Graph
 - D) Resource Allocation Group
 
-### Question 14
+### Question 13
 **What problem does RAG solve for LLMs?**
 - A) Slow response times
 - B) High compute costs
 - C) Lack of access to current/private data ✓
 - D) Poor grammar
 
-### Question 15
-**In a RAG pipeline, what happens FIRST?**
-- A) Generate response
-- B) Retrieve relevant documents ✓
-- C) Send to user
-- D) Train the model
-
-### Question 16
+### Question 14
 **What is "chunking" in RAG?**
 - A) Compressing the model
 - B) Breaking documents into smaller pieces ✓
 - C) Grouping similar queries
 - D) Caching responses
 
-
 ---
 
-## Best Practices (3 Questions)
+## Best Practices (2 Questions)
 
-
-### Question 19
+### Question 15
 **How can you improve RAG response quality?**
 - A) Use larger chunks only
 - B) Disable retrieval
 - C) Improve source document quality ✓
 - D) Reduce the number of retrieved chunks to 1
 
-### Question 20
-**What should you do if RAG returns irrelevant results?**
-- A) Increase model temperature
-- B) Review and improve your knowledge base content ✓
-- C) Disable the knowledge base
-- D) Use a smaller embedding model
 
 ---
 
@@ -164,15 +142,10 @@ Format: Question, 4 options (A-D), correct answer marked with ✓
 | 9 | C | Embeddings |
 | 10 | B | Embeddings |
 | 11 | B | Embeddings |
-| 12 | B | Embeddings |
-| 13 | B | RAG |
-| 14 | C | RAG |
-| 15 | B | RAG |
-| 16 | B | RAG |
-| 17 | C | RAG |
-| 18 | B | Best Practices |
-| 19 | C | Best Practices |
-| 20 | B | Best Practices |
+| 12 | B | RAG |
+| 13 | C | RAG |
+| 14 | B | RAG |
+| 15 | C | Best Practices |
 
 ---
 
