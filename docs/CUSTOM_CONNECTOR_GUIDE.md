@@ -10,7 +10,7 @@ This guide covers how to build custom connectors to ingest data from various sou
 
 ![Data Ingestion Pipeline](../diagrams/data-ingestion-pipeline.png)
 
-While Bedrock Knowledge Bases support native connectors for S3, Web Crawler, Confluence, Salesforce, and SharePoint, you'll often need to ingest data from custom sources:
+While Bedrock Knowledge Bases support native connectors for S3, Web Crawler, WIKI, Salesforce, and SharePoint, you'll often need to ingest data from custom sources:
 
 - Internal ticketing systems
 - Custom wikis or documentation platforms
@@ -198,9 +198,9 @@ TicketSyncRule:
 
 ---
 
-## Example 2: Confluence Wiki Connector
+## Example 2:  Wiki Connector
 
-For teams using Confluence without the native connector (e.g., self-hosted).
+For teams using wiki without a native connector (e.g., self-hosted).
 
 ```python
 import boto3
@@ -208,29 +208,29 @@ import requests
 from bs4 import BeautifulSoup
 import os
 
-def sync_confluence_space(space_key):
+def sync_WIKI_space(space_key):
     """
-    Sync a Confluence space to S3 for KB ingestion.
+    Sync a wiki space to S3 for KB ingestion.
     """
     
-    confluence_url = os.environ['CONFLUENCE_URL']
-    api_token = os.environ['CONFLUENCE_TOKEN']
+    wiki_url = os.environ['WIKI_URL']
+    api_token = os.environ['WIKI_TOKEN']
     bucket = os.environ['KB_BUCKET']
     
     s3 = boto3.client('s3')
     
     # Fetch all pages in space
-    pages = get_space_pages(confluence_url, space_key, api_token)
+    pages = get_space_pages(wiki_url, space_key, api_token)
     
     for page in pages:
         # Get page content
-        content = get_page_content(confluence_url, page['id'], api_token)
+        content = get_page_content(wiki_url, page['id'], api_token)
         
         # Convert HTML to clean text
         clean_content = html_to_markdown(content, page['title'])
         
         # Upload to S3
-        key = f"confluence/{space_key}/{page['id']}.md"
+        key = f"WIKI/{space_key}/{page['id']}.md"
         s3.put_object(
             Bucket=bucket,
             Key=key,
@@ -240,7 +240,7 @@ def sync_confluence_space(space_key):
         
         # Upload metadata
         metadata = {
-            'source': 'confluence',
+            'source': 'WIKI',
             'space': space_key,
             'page_id': page['id'],
             'title': page['title'],
@@ -255,7 +255,7 @@ def sync_confluence_space(space_key):
 
 
 def get_space_pages(base_url, space_key, token):
-    """Fetch all pages in a Confluence space."""
+    """Fetch all pages in a WIKI space."""
     headers = {'Authorization': f'Bearer {token}'}
     
     pages = []
@@ -297,7 +297,7 @@ def get_page_content(base_url, page_id, token):
 
 
 def html_to_markdown(html_content, title):
-    """Convert Confluence HTML to clean markdown."""
+    """Convert WIKI HTML to clean markdown."""
     soup = BeautifulSoup(html_content, 'html.parser')
     
     # Remove macros and unwanted elements

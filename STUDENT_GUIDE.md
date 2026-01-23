@@ -31,20 +31,6 @@ A Retrieval-Augmented Generation (RAG) workflow that:
 2. Click the CloudShell icon (terminal icon) in the top navigation bar
 3. Wait for CloudShell to initialize
 
-**Verify you're ready:**
-```bash
-# Check you're logged in
-aws sts get-caller-identity
-```
-
-**Expected output:**
-```json
-{
-    "UserId": "AIDAI...",
-    "Account": "123456789012",
-    "Arn": "arn:aws:iam::123456789012:user/student"
-}
-```
 
 ### Step 2: Upload and Extract Project Files (2 minutes)
 
@@ -67,20 +53,8 @@ chmod +x scripts/*.sh
 chmod +x scripts/*.py
 ```
 
-### Step 3: Enable Bedrock Models (3 minutes)
 
-**IMPORTANT:** Do this before deploying!
-
-1. Open a new browser tab → AWS Console → Amazon Bedrock
-2. Click "Model access" in left menu
-3. Click "Manage model access"
-4. Enable these models:
-   - ✅ **Anthropic Claude 4.5 Sonnet** (for generation)
-   - ✅ **Amazon Titan Text Embeddings V2** (for embeddings)
-5. Click "Save changes"
-6. Wait for "Access granted" status
-
-### Step 4: Deploy Infrastructure (10 minutes)
+### Step 3: Deploy Infrastructure (10 minutes)
 
 **Option A: Using setup.sh (Recommended)**
 ```bash
@@ -110,7 +84,7 @@ Knowledge Base ID: XXXXXXXXXX
 
 **SAVE THE KNOWLEDGE BASE ID!** You'll need it.
 
-### Step 5: Validate Deployment (2 minutes)
+### Step 4: Validate Deployment (2 minutes)
 
 ```bash
 # Run validation script
@@ -126,7 +100,7 @@ Knowledge Base ID: XXXXXXXXXX
 ✓ All checks passed!
 ```
 
-### Step 6: Deploy the RAG Playground Web UI (3 minutes)
+### Step 5: Deploy the RAG Playground Web UI (3 minutes)
 
 ```bash
 # Navigate to frontend directory
@@ -145,6 +119,20 @@ Frontend URL: http://rag-pipeline-frontend-123456789012-us-east-1.s3-website-us-
 
 **Open the Frontend URL in your browser!**
 
+### Step 6: Explore the Prompt Engineering Lab (10 minutes)
+
+1. Click the **"✨ Prompt Engineering Lab"** tab at the top
+2. Select a technique from the sidebar to learn about it
+3. Choose two techniques to compare (A vs B)
+4. Enter a question and click "Compare Techniques"
+5. See how different prompting strategies affect the response!
+
+**Techniques to try:**
+- **Zero-Shot vs Few-Shot**: See how examples improve formatting
+- **Zero-Shot vs Chain-of-Thought**: Compare direct answers vs step-by-step reasoning
+- **Role: TAM vs Role: SA**: See how persona affects tone and focus
+- **Structured: JSON vs Structured: List**: Compare output formats
+
 ### Step 7: Test RAG Queries with the Web UI (10 minutes)
 
 1. Open the RAG Playground URL in your browser
@@ -160,21 +148,9 @@ Frontend URL: http://rag-pipeline-frontend-123456789012-us-east-1.s3-website-us-
 
 **Compare the responses!** Notice how RAG responses include citations and more specific information.
 
-### Step 8: Explore the Prompt Engineering Lab (10 minutes)
 
-1. Click the **"✨ Prompt Engineering Lab"** tab at the top
-2. Select a technique from the sidebar to learn about it
-3. Choose two techniques to compare (A vs B)
-4. Enter a question and click "Compare Techniques"
-5. See how different prompting strategies affect the response!
 
-**Techniques to try:**
-- **Zero-Shot vs Few-Shot**: See how examples improve formatting
-- **Zero-Shot vs Chain-of-Thought**: Compare direct answers vs step-by-step reasoning
-- **Role: TAM vs Role: SA**: See how persona affects tone and focus
-- **Structured: JSON vs Structured: List**: Compare output formats
-
-### Step 9: Complete the Exercise Guide
+### Step 8: Complete the Exercise Guide
 
 Follow the detailed instructions in `exercise-guide.md` to:
 - Part 1: Explore the Knowledge Base
@@ -255,7 +231,7 @@ You've successfully built a RAG pipeline using:
 ### Reusable Architecture (Start Here!)
 **This is yours to keep and reuse:**
 - **Guide:** `docs/RAG_REFERENCE_ARCHITECTURE.md`
-  - Fork this repo, swap the docs, deploy for your team in 15 minutes
+  - Fork this repo, swap the docs, deploy in 15 minutes
   - Complete architecture with security, scalability, and cost considerations
   - Step-by-step customization (change prompts, add auth, use different models)
   - Cost estimation (~$65-115/month for typical internal tool)

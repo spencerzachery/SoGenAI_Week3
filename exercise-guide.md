@@ -64,7 +64,7 @@ You should see:
 
 ### Step 1.3: Create Bedrock Knowledge Base (10 minutes)
 
-**Option A: AWS Console (Recommended for learning)**
+**Option A: AWS Console**
 
 1. Go to AWS Console → Amazon Bedrock → Knowledge bases
 2. Click "Create knowledge base"
