@@ -132,7 +132,7 @@ Resources:
   VectorBucket:
     Type: AWS::S3Vectors::VectorBucket
     Properties:
-      VectorBucketName: !Sub '${ProjectName}-vectors-${AWS::AccountId}${DeploymentSuffix}'
+      VectorBucketName: !Sub '${ProjectName}-vec${DeploymentSuffix}'
 
   # =============================================================================
   # S3 Vector Index for Knowledge Base
@@ -198,8 +198,8 @@ Resources:
                 Action:
                   - s3vectors:*
                 Resource:
-                  - !Sub 'arn:aws:s3vectors:${AWS::Region}:${AWS::AccountId}:vector-bucket/${ProjectName}-vectors-${AWS::AccountId}${DeploymentSuffix}'
-                  - !Sub 'arn:aws:s3vectors:${AWS::Region}:${AWS::AccountId}:vector-bucket/${ProjectName}-vectors-${AWS::AccountId}${DeploymentSuffix}/*'
+                  - !Sub 'arn:aws:s3vectors:${AWS::Region}:${AWS::AccountId}:vector-bucket/${ProjectName}-vec${DeploymentSuffix}'
+                  - !Sub 'arn:aws:s3vectors:${AWS::Region}:${AWS::AccountId}:vector-bucket/${ProjectName}-vec${DeploymentSuffix}/*'
 
   # =============================================================================
   # Bedrock Knowledge Base (S3 Vectors)
