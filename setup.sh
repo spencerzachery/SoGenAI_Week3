@@ -99,49 +99,26 @@ check_bedrock_access() {
 deploy_infrastructure() {
     echo -e "${YELLOW}Deploying CloudFormation infrastructure...${NC}"
     
-    STACK_NAME="${PROJECT_NAME}-stack"
-    
-    # Check if stack exists
-    STACK_STATUS=$(aws cloudformation describe-stacks --stack-name $STACK_NAME \
-        --query 'Stacks[0].StackStatus' --output text 2>/dev/null || echo "DOES_NOT_EXIST")
-    
-    if [ "$STACK_STATUS" == "DOES_NOT_EXIST" ]; then
-        echo "Creating new stack: $STACK_NAME"
-        aws cloudformation create-stack \
-            --stack-name $STACK_NAME \
-            --template-body file://cloudformation/rag-pipeline-stack.yaml \
-            --parameters ParameterKey=ProjectName,ParameterValue=$PROJECT_NAME \
-            --capabilities CAPABILITY_NAMED_IAM \
-            --region $REGION
-        
-        echo "Waiting for stack creation..."
-        aws cloudformation wait stack-create-complete --stack-name $STACK_NAME --region $REGION
-    else
-        echo "Stack exists with status: $STACK_STATUS"
-        if [ "$STACK_STATUS" == "CREATE_COMPLETE" ] || [ "$STACK_STATUS" == "UPDATE_COMPLETE" ]; then
-            echo "Stack is ready, skipping deployment"
-        else
-            echo -e "${RED}Stack is in unexpected state. Please check CloudFormation console.${NC}"
-            exit 1
-        fi
-    fi
+    # Use the deploy script for consistent deployment
+    cd cloudformation && ./deploy.sh
+    cd ..
     
     echo -e "${GREEN}✓ Infrastructure deployed${NC}"
     echo ""
 }
 
 # =============================================================================
-# Upload Knowledge Base Content
+# Upload Knowledge Base Content (handled by deploy.sh, but kept for manual re-sync)
 # =============================================================================
 upload_knowledge_base() {
-    echo -e "${YELLOW}Uploading knowledge base content...${NC}"
+    echo -e "${YELLOW}Verifying knowledge base content...${NC}"
     
     BUCKET_NAME="${PROJECT_NAME}-kb-${ACCOUNT_ID}-${REGION}"
     
-    # Upload all knowledge base files
+    # Sync to ensure all files are uploaded (deploy.sh does this too)
     aws s3 sync knowledge-base/support-cases/ s3://${BUCKET_NAME}/support-cases/ --region $REGION
     
-    echo -e "${GREEN}✓ Knowledge base content uploaded to s3://${BUCKET_NAME}${NC}"
+    echo -e "${GREEN}✓ Knowledge base content verified in s3://${BUCKET_NAME}${NC}"
     echo ""
 }
 
