@@ -140,8 +140,8 @@ Resources:
   VectorIndex:
     Type: AWS::S3Vectors::Index
     Properties:
-      VectorBucketName: !Ref VectorBucket
-      IndexName: !Sub '${ProjectName}-index${DeploymentSuffix}'
+      VectorBucketArn: !GetAtt VectorBucket.VectorBucketArn
+      IndexName: !Sub '${ProjectName}-idx${DeploymentSuffix}'
       DataType: float32
       Dimension: 1024
       DistanceMetric: cosine
