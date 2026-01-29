@@ -47,7 +47,7 @@ git clone https://github.com/spencerzachery/SoGenAI_Week3/
 ```
 Then run change directory and run the setup script
 ```bash
-cd SoGenAI_Week3
+cd ~/SoGenAI_Week3
 ./setup.sh
 ```
 
