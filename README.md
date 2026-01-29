@@ -43,8 +43,14 @@ A hands-on learning experience that teaches prompt engineering strategies, embed
 
 Pull from github
 ```bash
-git clone https://github.com/spencerzachery/SoGenAI_Week3/blob/main/README.md
+git clone https://github.com/spencerzachery/SoGenAI_Week3/
 ```
+Then run change directory and run the setup script
+```bash
+cd SoGenAI_Week3
+./setup.sh
+```
+
 or upload the zip file via CloudShell Actions menu
 
 ```bash

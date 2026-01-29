@@ -15,17 +15,21 @@ NC='\033[0m'
 # Configuration
 PROJECT_NAME="${PROJECT_NAME:-rag-pipeline}"
 REGION="${AWS_REGION:-us-east-1}"
-STACK_NAME="${PROJECT_NAME}-stack"
+DEPLOYMENT_SUFFIX="${DEPLOYMENT_SUFFIX:-}"
+STACK_NAME="${PROJECT_NAME}-stack${DEPLOYMENT_SUFFIX}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 
 echo -e "${YELLOW}Deploying RAG Pipeline CloudFormation Stack...${NC}"
 echo "Stack Name: $STACK_NAME"
 echo "Region: $REGION"
+if [ -n "$DEPLOYMENT_SUFFIX" ]; then
+    echo "Deployment Suffix: $DEPLOYMENT_SUFFIX"
+fi
 echo ""
 
 # Upload knowledge base documents first (before stack creates KB)
-KB_BUCKET="${PROJECT_NAME}-kb-${ACCOUNT_ID}-${REGION}"
+KB_BUCKET="${PROJECT_NAME}-kb-${ACCOUNT_ID}-${REGION}${DEPLOYMENT_SUFFIX}"
 
 # Check if bucket exists, if so upload docs
 if aws s3 ls "s3://${KB_BUCKET}" 2>/dev/null; then
@@ -44,6 +48,7 @@ if [ "$STACK_STATUS" == "DOES_NOT_EXIST" ]; then
         --stack-name $STACK_NAME \
         --template-body file://${SCRIPT_DIR}/rag-pipeline-stack.yaml \
         --parameters ParameterKey=ProjectName,ParameterValue=$PROJECT_NAME \
+                     ParameterKey=DeploymentSuffix,ParameterValue=$DEPLOYMENT_SUFFIX \
         --capabilities CAPABILITY_NAMED_IAM \
         --region $REGION
     
@@ -87,6 +92,7 @@ else
             --stack-name $STACK_NAME \
             --template-body file://${SCRIPT_DIR}/rag-pipeline-stack.yaml \
             --parameters ParameterKey=ProjectName,ParameterValue=$PROJECT_NAME \
+                         ParameterKey=DeploymentSuffix,ParameterValue=$DEPLOYMENT_SUFFIX \
             --capabilities CAPABILITY_NAMED_IAM \
             --region $REGION 2>&1) || true
         

@@ -7,6 +7,11 @@ Parameters:
     Default: rag-pipeline
     Description: Name prefix for all resources
   
+  DeploymentSuffix:
+    Type: String
+    Default: ''
+    Description: Optional suffix for resource names (useful for testing multiple deployments)
+  
   EmbeddingModelId:
     Type: String
     Default: amazon.titan-embed-text-v2:0
@@ -19,7 +24,7 @@ Resources:
   KnowledgeBaseBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub '${ProjectName}-kb-${AWS::AccountId}-${AWS::Region}'
+      BucketName: !Sub '${ProjectName}-kb-${AWS::AccountId}-${AWS::Region}${DeploymentSuffix}'
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
@@ -39,7 +44,7 @@ Resources:
   FrontendBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub '${ProjectName}-frontend-${AWS::AccountId}-${AWS::Region}'
+      BucketName: !Sub '${ProjectName}-frontend-${AWS::AccountId}-${AWS::Region}${DeploymentSuffix}'
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
@@ -60,7 +65,7 @@ Resources:
     Type: AWS::CloudFront::OriginAccessControl
     Properties:
       OriginAccessControlConfig:
-        Name: !Sub '${ProjectName}-oac'
+        Name: !Sub '${ProjectName}-oac${DeploymentSuffix}'
         OriginAccessControlOriginType: s3
         SigningBehavior: always
         SigningProtocol: sigv4
@@ -127,7 +132,7 @@ Resources:
   KnowledgeBaseRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub '${ProjectName}-kb-role'
+      RoleName: !Sub '${ProjectName}-kb-role${DeploymentSuffix}'
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -168,7 +173,7 @@ Resources:
   KnowledgeBase:
     Type: AWS::Bedrock::KnowledgeBase
     Properties:
-      Name: !Sub '${ProjectName}-kb'
+      Name: !Sub '${ProjectName}-kb${DeploymentSuffix}'
       Description: 'Enterprise support knowledge base for RAG pipeline'
       RoleArn: !GetAtt KnowledgeBaseRole.Arn
       KnowledgeBaseConfiguration:
@@ -176,9 +181,9 @@ Resources:
         VectorKnowledgeBaseConfiguration:
           EmbeddingModelArn: !Sub 'arn:aws:bedrock:${AWS::Region}::foundation-model/${EmbeddingModelId}'
       StorageConfiguration:
-        Type: S3
-        S3Configuration:
-          BucketArn: !GetAtt KnowledgeBaseBucket.Arn
+        Type: S3_VECTORS
+        S3VectorsConfiguration:
+          VectorBucketArn: !GetAtt KnowledgeBaseBucket.Arn
       Tags:
         Project: !Ref ProjectName
 
@@ -188,7 +193,7 @@ Resources:
   KnowledgeBaseDataSource:
     Type: AWS::Bedrock::DataSource
     Properties:
-      Name: !Sub '${ProjectName}-datasource'
+      Name: !Sub '${ProjectName}-datasource${DeploymentSuffix}'
       Description: 'S3 data source for support documentation'
       KnowledgeBaseId: !Ref KnowledgeBase
       DataSourceConfiguration:
@@ -208,7 +213,7 @@ Resources:
   LambdaExecutionRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub '${ProjectName}-lambda-role'
+      RoleName: !Sub '${ProjectName}-lambda-role${DeploymentSuffix}'
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -258,7 +263,7 @@ Resources:
   QueryFunction:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: !Sub '${ProjectName}-query'
+      FunctionName: !Sub '${ProjectName}-query${DeploymentSuffix}'
       Runtime: python3.11
       Handler: index.handler
       Role: !GetAtt LambdaExecutionRole.Arn
@@ -370,7 +375,7 @@ Resources:
   IngestionFunction:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: !Sub '${ProjectName}-ingestion'
+      FunctionName: !Sub '${ProjectName}-ingestion${DeploymentSuffix}'
       Runtime: python3.11
       Handler: index.handler
       Role: !GetAtt LambdaExecutionRole.Arn
@@ -468,7 +473,7 @@ Resources:
   ApiGateway:
     Type: AWS::ApiGatewayV2::Api
     Properties:
-      Name: !Sub '${ProjectName}-api'
+      Name: !Sub '${ProjectName}-api${DeploymentSuffix}'
       ProtocolType: HTTP
       CorsConfiguration:
         AllowOrigins: ['*']
