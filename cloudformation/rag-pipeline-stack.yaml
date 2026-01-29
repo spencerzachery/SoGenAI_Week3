@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'Week 3: RAG Pipeline for Enterprise Support - With auto-provisioned Knowledge Base'
+Description: 'Week 3: RAG Pipeline for Enterprise Support - With S3 Vectors Knowledge Base'
 
 Parameters:
   ProjectName:
@@ -19,7 +19,7 @@ Parameters:
 
 Resources:
   # =============================================================================
-  # S3 Bucket for Knowledge Base Content
+  # S3 Bucket for Knowledge Base Content (Source Documents)
   # =============================================================================
   KnowledgeBaseBucket:
     Type: AWS::S3::Bucket
@@ -127,6 +127,30 @@ Resources:
           Value: !Ref ProjectName
 
   # =============================================================================
+  # S3 Vector Bucket for Vector Embeddings Storage
+  # =============================================================================
+  VectorBucket:
+    Type: AWS::S3Vectors::VectorBucket
+    Properties:
+      VectorBucketName: !Sub '${ProjectName}-vectors-${AWS::AccountId}${DeploymentSuffix}'
+
+  # =============================================================================
+  # S3 Vector Index for Knowledge Base
+  # =============================================================================
+  VectorIndex:
+    Type: AWS::S3Vectors::Index
+    Properties:
+      VectorBucketName: !Ref VectorBucket
+      IndexName: !Sub '${ProjectName}-index${DeploymentSuffix}'
+      DataType: float32
+      Dimension: 1024
+      DistanceMetric: cosine
+      MetadataConfiguration:
+        NonFilterableMetadataKeys:
+          - AMAZON_BEDROCK_TEXT
+          - AMAZON_BEDROCK_METADATA
+
+  # =============================================================================
   # IAM Role for Bedrock Knowledge Base
   # =============================================================================
   KnowledgeBaseRole:
@@ -166,15 +190,25 @@ Resources:
                   - bedrock:InvokeModel
                 Resource:
                   - !Sub 'arn:aws:bedrock:${AWS::Region}::foundation-model/${EmbeddingModelId}'
+        - PolicyName: S3VectorsAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3vectors:*
+                Resource:
+                  - !Sub 'arn:aws:s3vectors:${AWS::Region}:${AWS::AccountId}:vector-bucket/${ProjectName}-vectors-${AWS::AccountId}${DeploymentSuffix}'
+                  - !Sub 'arn:aws:s3vectors:${AWS::Region}:${AWS::AccountId}:vector-bucket/${ProjectName}-vectors-${AWS::AccountId}${DeploymentSuffix}/*'
 
   # =============================================================================
-  # Bedrock Knowledge Base (S3 Vector Store)
+  # Bedrock Knowledge Base (S3 Vectors)
   # =============================================================================
   KnowledgeBase:
     Type: AWS::Bedrock::KnowledgeBase
     Properties:
       Name: !Sub '${ProjectName}-kb${DeploymentSuffix}'
-      Description: 'Enterprise support knowledge base for RAG pipeline'
+      Description: 'Enterprise support knowledge base for RAG pipeline using S3 Vectors'
       RoleArn: !GetAtt KnowledgeBaseRole.Arn
       KnowledgeBaseConfiguration:
         Type: VECTOR
@@ -183,7 +217,8 @@ Resources:
       StorageConfiguration:
         Type: S3_VECTORS
         S3VectorsConfiguration:
-          VectorBucketArn: !GetAtt KnowledgeBaseBucket.Arn
+          VectorBucketArn: !GetAtt VectorBucket.VectorBucketArn
+          IndexArn: !GetAtt VectorIndex.IndexArn
       Tags:
         Project: !Ref ProjectName
 
@@ -370,7 +405,7 @@ Resources:
               }
 
   # =============================================================================
-  # Custom Resource Lambda for S3 Upload and Ingestion
+  # Custom Resource Lambda for Ingestion
   # =============================================================================
   IngestionFunction:
     Type: AWS::Lambda::Function
@@ -406,7 +441,6 @@ Resources:
                   kb_id = os.environ['KNOWLEDGE_BASE_ID']
                   ds_id = os.environ['DATA_SOURCE_ID']
                   
-                  # Start ingestion job
                   response = bedrock_agent.start_ingestion_job(
                       knowledgeBaseId=kb_id,
                       dataSourceId=ds_id
@@ -415,8 +449,7 @@ Resources:
                   job_id = response['ingestionJob']['ingestionJobId']
                   print(f"Started ingestion job: {job_id}")
                   
-                  # Wait for ingestion to complete (with timeout)
-                  max_wait = 240  # 4 minutes
+                  max_wait = 240
                   waited = 0
                   while waited < max_wait:
                       time.sleep(10)
@@ -443,7 +476,6 @@ Resources:
                           })
                           return
                   
-                  # Timeout - but job is still running, consider it success
                   cfnresponse.send(event, context, cfnresponse.SUCCESS, {
                       'IngestionJobId': job_id,
                       'Status': 'IN_PROGRESS'
@@ -464,7 +496,6 @@ Resources:
       - KnowledgeBaseDataSource
     Properties:
       ServiceToken: !GetAtt IngestionFunction.Arn
-      # Change this value to force re-ingestion on stack update
       Version: '1'
 
   # =============================================================================
@@ -527,6 +558,14 @@ Outputs:
   DataSourceId:
     Description: Knowledge Base Data Source ID
     Value: !GetAtt KnowledgeBaseDataSource.DataSourceId
+
+  VectorBucketArn:
+    Description: S3 Vector Bucket ARN for embeddings
+    Value: !GetAtt VectorBucket.VectorBucketArn
+
+  VectorIndexArn:
+    Description: S3 Vector Index ARN
+    Value: !GetAtt VectorIndex.IndexArn
 
   FrontendBucketName:
     Description: S3 bucket for frontend hosting
