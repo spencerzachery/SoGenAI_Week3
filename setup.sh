@@ -252,11 +252,11 @@ validate_deployment() {
         echo -e "${RED}❌ CloudFormation stack: $STACK_STATUS${NC}"
     fi
     
-    # Check S3 bucket
+    # Check S3 bucket for knowledge base content
     BUCKET_NAME="${PROJECT_NAME}-kb-${ACCOUNT_ID}-${REGION}"
-    BUCKET_EXISTS=$(aws s3 ls s3://${BUCKET_NAME} 2>/dev/null && echo "yes" || echo "no")
+    BUCKET_CONTENT=$(aws s3 ls s3://${BUCKET_NAME}/support-cases/ --region $REGION 2>/dev/null | head -1)
     
-    if [ "$BUCKET_EXISTS" == "yes" ]; then
+    if [ -n "$BUCKET_CONTENT" ]; then
         echo -e "${GREEN}✓ S3 bucket exists with content${NC}"
     else
         echo -e "${RED}❌ S3 bucket not found or empty${NC}"

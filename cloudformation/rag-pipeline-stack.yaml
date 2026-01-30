@@ -325,6 +325,32 @@ Resources:
           bedrock_agent = boto3.client('bedrock-agent-runtime')
           bedrock = boto3.client('bedrock-runtime')
           
+          # Map model IDs to inference profile IDs for models that require them
+          INFERENCE_PROFILE_MAP = {
+              'anthropic.claude-sonnet-4-5-20250929-v1:0': 'us.anthropic.claude-sonnet-4-5-20250929-v1:0',
+              'anthropic.claude-sonnet-4-20250514-v1:0': 'us.anthropic.claude-sonnet-4-20250514-v1:0',
+              'anthropic.claude-3-5-sonnet-20241022-v2:0': 'us.anthropic.claude-3-5-sonnet-20241022-v2:0',
+              'anthropic.claude-3-5-sonnet-20240620-v1:0': 'us.anthropic.claude-3-5-sonnet-20240620-v1:0',
+          }
+          
+          def get_model_arn(model_id, region):
+              # If already an inference profile, use it directly
+              if model_id.startswith('us.') or model_id.startswith('eu.'):
+                  return f'arn:aws:bedrock:{region}:{os.environ.get("AWS_ACCOUNT_ID", "")}:inference-profile/{model_id}'
+              # Check if model needs inference profile
+              if model_id in INFERENCE_PROFILE_MAP:
+                  profile_id = INFERENCE_PROFILE_MAP[model_id]
+                  return f'arn:aws:bedrock:{region}:{os.environ.get("AWS_ACCOUNT_ID", "")}:inference-profile/{profile_id}'
+              # Standard foundation model
+              return f'arn:aws:bedrock:{region}::foundation-model/{model_id}'
+          
+          def get_invoke_model_id(model_id):
+              # If already an inference profile, use it
+              if model_id.startswith('us.') or model_id.startswith('eu.'):
+                  return model_id
+              # Check if model needs inference profile
+              return INFERENCE_PROFILE_MAP.get(model_id, model_id)
+          
           def handler(event, context):
               if event.get('httpMethod') == 'OPTIONS' or event.get('requestContext', {}).get('http', {}).get('method') == 'OPTIONS':
                   return cors_response(200, {})
@@ -349,6 +375,7 @@ Resources:
           
           def query_with_rag(query, kb_id, model_id, system_prompt):
               region = os.environ.get('AWS_REGION', 'us-east-1')
+              model_arn = get_model_arn(model_id, region)
               
               response = bedrock_agent.retrieve_and_generate(
                   input={'text': query},
@@ -356,7 +383,7 @@ Resources:
                       'type': 'KNOWLEDGE_BASE',
                       'knowledgeBaseConfiguration': {
                           'knowledgeBaseId': kb_id,
-                          'modelArn': f'arn:aws:bedrock:{region}::foundation-model/{model_id}',
+                          'modelArn': model_arn,
                           'generationConfiguration': {
                               'promptTemplate': {
                                   'textPromptTemplate': system_prompt + '\n\nContext:\n$search_results$\n\nQuestion: $query$\n\nAnswer:'
@@ -383,8 +410,10 @@ Resources:
               }
           
           def query_without_rag(query, model_id, system_prompt):
+              invoke_model_id = get_invoke_model_id(model_id)
+              
               response = bedrock.invoke_model(
-                  modelId=model_id,
+                  modelId=invoke_model_id,
                   body=json.dumps({
                       'anthropic_version': 'bedrock-2023-05-31',
                       'max_tokens': 2048,
