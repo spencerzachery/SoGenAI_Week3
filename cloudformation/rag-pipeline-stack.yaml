@@ -315,7 +315,7 @@ Resources:
       Environment:
         Variables:
           KNOWLEDGE_BASE_ID: !Ref KnowledgeBase
-          DEFAULT_MODEL_ID: 'anthropic.claude-sonnet-4-5-20250929-v1:0'
+          DEFAULT_MODEL_ID: 'us.anthropic.claude-sonnet-4-5-20250929-v1:0'
       Code:
         ZipFile: |
           import json
