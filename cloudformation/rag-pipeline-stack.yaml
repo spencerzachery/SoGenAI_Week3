@@ -276,6 +276,8 @@ Resources:
                   - bedrock:InvokeModel
                   - bedrock:Retrieve
                   - bedrock:RetrieveAndGenerate
+                  - bedrock:GetInferenceProfile
+                  - bedrock:ListInferenceProfiles
                 Resource: '*'
         - PolicyName: BedrockAgentAccess
           PolicyDocument:
