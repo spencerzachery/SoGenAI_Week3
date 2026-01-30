@@ -252,8 +252,16 @@ validate_deployment() {
         echo -e "${RED}❌ CloudFormation stack: $STACK_STATUS${NC}"
     fi
     
-    # Check S3 bucket for knowledge base content
-    BUCKET_NAME="${PROJECT_NAME}-kb-${ACCOUNT_ID}-${REGION}"
+    # Get S3 bucket name from CloudFormation outputs (more reliable)
+    BUCKET_NAME=$(aws cloudformation describe-stacks --stack-name ${PROJECT_NAME}-stack \
+        --query "Stacks[0].Outputs[?OutputKey=='KnowledgeBaseBucketName'].OutputValue" \
+        --output text --region $REGION 2>/dev/null || echo "")
+    
+    if [ -z "$BUCKET_NAME" ] || [ "$BUCKET_NAME" == "None" ]; then
+        # Fallback to constructed name
+        BUCKET_NAME="${PROJECT_NAME}-kb-${ACCOUNT_ID}-${REGION}"
+    fi
+    
     BUCKET_CONTENT=$(aws s3 ls s3://${BUCKET_NAME}/support-cases/ --region $REGION 2>/dev/null | head -1)
     
     if [ -n "$BUCKET_CONTENT" ]; then

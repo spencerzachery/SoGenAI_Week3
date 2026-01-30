@@ -333,16 +333,16 @@ Resources:
               'anthropic.claude-3-5-sonnet-20240620-v1:0': 'us.anthropic.claude-3-5-sonnet-20240620-v1:0',
           }
           
-          def get_model_arn(model_id, region):
-              # If already an inference profile, use it directly
+          def get_model_id_for_rag(model_id):
+              # For RetrieveAndGenerate, cross-region inference profiles can use just the ID
+              # If already an inference profile ID, use it directly
               if model_id.startswith('us.') or model_id.startswith('eu.'):
-                  return f'arn:aws:bedrock:{region}:{os.environ.get("AWS_ACCOUNT_ID", "")}:inference-profile/{model_id}'
+                  return model_id
               # Check if model needs inference profile
               if model_id in INFERENCE_PROFILE_MAP:
-                  profile_id = INFERENCE_PROFILE_MAP[model_id]
-                  return f'arn:aws:bedrock:{region}:{os.environ.get("AWS_ACCOUNT_ID", "")}:inference-profile/{profile_id}'
-              # Standard foundation model
-              return f'arn:aws:bedrock:{region}::foundation-model/{model_id}'
+                  return INFERENCE_PROFILE_MAP[model_id]
+              # Standard foundation model - use model ID directly
+              return model_id
           
           def get_invoke_model_id(model_id):
               # If already an inference profile, use it
@@ -374,8 +374,8 @@ Resources:
                   return cors_response(500, {'error': str(e)})
           
           def query_with_rag(query, kb_id, model_id, system_prompt):
-              region = os.environ.get('AWS_REGION', 'us-east-1')
-              model_arn = get_model_arn(model_id, region)
+              # For RetrieveAndGenerate, use the model/inference profile ID directly
+              rag_model_id = get_model_id_for_rag(model_id)
               
               response = bedrock_agent.retrieve_and_generate(
                   input={'text': query},
@@ -383,7 +383,7 @@ Resources:
                       'type': 'KNOWLEDGE_BASE',
                       'knowledgeBaseConfiguration': {
                           'knowledgeBaseId': kb_id,
-                          'modelArn': model_arn,
+                          'modelArn': rag_model_id,
                           'generationConfiguration': {
                               'promptTemplate': {
                                   'textPromptTemplate': system_prompt + '\n\nContext:\n$search_results$\n\nQuestion: $query$\n\nAnswer:'
